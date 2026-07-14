@@ -1,6 +1,6 @@
 """
 富邦 VCCT 月配息計算器
-針對您持有的 5 檔基金，自動抓取淨值與配息並計算排行
+針對您持有的 8 檔基金，自動抓取淨值與配息並計算排行
 =====================================================
 安裝依賴套件：
     pip3 install selenium webdriver-manager
@@ -19,15 +19,20 @@ FEE_RATE = 0.05        # 保費費用率（5% → 0.05）
 USD_RATE = 31.4        # 美金匯率
 PRODUCT  = "VCCT"      # 商品代碼
 
-# 您持有的基金清單（名稱可自訂，代碼請勿修改）
-# 若要新增基金：請至富邦網站找到基金頁面，複製網址中 a= 後的代碼
-# 國內基金用 prefix="wr"，海外基金用 prefix="wb"
+# 網址解析規則：
+# $W$WB$WB01]DJHTM{A}JF^N3-JFP11 → prefix=wb, code=JFN3-JFP11  (^=英文字母，需對照)
+# $W$WR$WR01]DJHTM{A}ACTI71-ACC3 → prefix=wr, code=ACTI71-ACC3
+# ^ 符號代表特殊字元編碼，實際代碼需從網站確認
+# 以下為正確解析後的代碼：
 FUNDS = [
-    {"name": "JFP11", "code": "JFP11-PBE2",     "prefix": "wb"},
-    {"name": "ACC3",  "code": "ACC3-PBE2",       "prefix": "wb"},
-    {"name": "IGB5",  "code": "IGB5-PBE2",       "prefix": "wb"},
-    {"name": "FRP4",  "code": "FRP4-PBE2",       "prefix": "wb"},
-    {"name": "DSP5",  "code": "ACAI168-PBE2",    "prefix": "wr"},
+    {"name": "JFP11", "code": "JFN3-JFP11",     "prefix": "wb"},  # $W$WB → wb, JF^N3 → JFN3
+    {"name": "ACC3",  "code": "ACTI71-ACC3",     "prefix": "wr"},  # $W$WR → wr
+    {"name": "IGB5",  "code": "CTP0-IGB5",       "prefix": "wb"},  # CT^P0 → CTP0
+    {"name": "FRP4",  "code": "FL92-FRP4",       "prefix": "wb"},  # FL^92 → FL92
+    {"name": "DSP5",  "code": "TL64-DSP5",       "prefix": "wb"},  # TL^64 → TL64
+    {"name": "SCP6",  "code": "PYW3-SCP6",       "prefix": "wb"},  # PY^W3 → PYW3
+    {"name": "ESC1",  "code": "ACCP138-ESC1",    "prefix": "wr"},  # $W$WR → wr
+    {"name": "MLE24", "code": "SHV9-MLE24",      "prefix": "wb"},  # SH^V9 → SHV9
 ]
 # ────────────────────────────────────────────────────────────────
 
@@ -84,7 +89,7 @@ def fetch_fund_data(driver, fund):
         WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.TAG_NAME, "table"))
         )
-        time.sleep(1)
+        time.sleep(1.5)
         rows = driver.find_elements(By.CSS_SELECTOR, "table tr")
         for row in rows:
             cells = [td.text.strip() for td in row.find_elements(By.TAG_NAME, "td")]
@@ -95,15 +100,21 @@ def fetch_fund_data(driver, fund):
                     break
                 except ValueError:
                     continue
-        # 備用：從導覽連結抓
         if not nav:
             for a in driver.find_elements(By.TAG_NAME, "a"):
                 t = a.text.strip()
                 if re.match(r"^\d+\.\d{2,6}$", t):
-                    nav = float(t)
-                    break
+                    try:
+                        nav = float(t)
+                        break
+                    except ValueError:
+                        continue
     except Exception:
         pass
+
+    # 確認是否被導向預設頁（淨值 = 7.94 是預設值）
+    if nav == 7.94 or nav == 7.9400:
+        nav = None
 
     # ── 抓配息 ──
     dist_page = "wr10" if p == "wr" else "wb05"
@@ -114,22 +125,41 @@ def fetch_fund_data(driver, fund):
         WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.TAG_NAME, "table"))
         )
-        time.sleep(1.5)   # 等 JS 渲染配息表格
+        time.sleep(2)
         rows = driver.find_elements(By.CSS_SELECTOR, "table tr")
         for row in rows:
             cells = [td.text.strip() for td in row.find_elements(By.TAG_NAME, "td")]
             for cell in cells:
                 if re.match(r"^\d+\.\d{3,6}$", cell):
-                    val = float(cell)
-                    if 0.001 < val < 100:
-                        dist = val
-                        break
+                    try:
+                        val = float(cell)
+                        if 0.001 < val < 100:
+                            dist = val
+                            break
+                    except ValueError:
+                        continue
             if dist:
                 break
     except Exception:
         pass
 
     return nav, nav_date, dist
+
+
+def diagnose_url(driver, fund):
+    """診斷用：直接抓取頁面標題確認代碼是否正確"""
+    from selenium.webdriver.common.by import By
+    p   = fund["prefix"]
+    url = f"{BASE}/w/{p}/{p}01.djhtm?a={fund['code']}&product={PRODUCT}"
+    driver.get(url)
+    time.sleep(2)
+    try:
+        h3 = driver.find_elements(By.TAG_NAME, "h3")
+        if h3:
+            return h3[0].text.strip()
+    except Exception:
+        pass
+    return driver.title
 
 
 def calculate(nav, dist, name):
@@ -203,7 +233,7 @@ def main():
 
     try:
         for i, fund in enumerate(FUNDS, 1):
-            print(f"  [{i}/{len(FUNDS)}] {fund['name']:<10}", end=" ", flush=True)
+            print(f"  [{i}/{len(FUNDS)}] {fund['name']:<8}", end=" ", flush=True)
             nav, nav_date, dist = fetch_fund_data(driver, fund)
 
             if nav and dist:
@@ -216,16 +246,17 @@ def main():
                 print(f"⚠️  淨值={nav:.4f}  但無配息資料")
                 errors.append(fund["name"])
             else:
-                print("❌ 無法取得資料")
+                # 診斷：印出頁面標題
+                title = diagnose_url(driver, fund)
+                print(f"❌ 代碼可能錯誤 → 頁面標題：{title[:40]}")
                 errors.append(fund["name"])
 
     finally:
         driver.quit()
-        print("🔒 瀏覽器已關閉")
+        print("\n🔒 瀏覽器已關閉")
 
     if errors:
-        print(f"\n⚠️  以下基金代碼可能需要更新：{', '.join(errors)}")
-        print("   請至富邦網站查詢正確代碼後更新程式頂部的 FUNDS 清單")
+        print(f"\n⚠️  以下基金需確認代碼：{', '.join(errors)}")
 
     if not results:
         print("\n❌ 沒有取得任何有效資料。")
