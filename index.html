@@ -16,18 +16,26 @@
   .field { display: flex; flex-direction: column; gap: 5px; }
   .field label { font-size: 13px; color: #6e6e73; }
   .input-wrap { display: flex; align-items: center; gap: 6px; }
-  .input-wrap input, .input-wrap select { font-size: 15px; padding: 9px 11px; border-radius: 10px; border: 1px solid #d2d2d7; background: #f5f5f7; color: #1d1d1f; width: 100%; }
-  .input-wrap input:focus, .input-wrap select:focus { outline: none; border-color: #0071e3; background: #fff; }
+  .input-wrap input { font-size: 15px; padding: 9px 11px; border-radius: 10px; border: 1px solid #d2d2d7; background: #f5f5f7; color: #1d1d1f; flex: 1; }
+  .input-wrap input:focus { outline: none; border-color: #0071e3; background: #fff; }
   .input-wrap .unit { font-size: 14px; color: #6e6e73; white-space: nowrap; }
   .field input, .field select { font-size: 15px; padding: 9px 11px; border-radius: 10px; border: 1px solid #d2d2d7; background: #f5f5f7; color: #1d1d1f; width: 100%; }
   .field input:focus, .field select:focus { outline: none; border-color: #0071e3; background: #fff; }
   .fee-info { font-size: 12px; color: #0071e3; background: #f0f6ff; border-radius: 8px; padding: 6px 10px; margin-top: 6px; }
+
+  /* 模式切換 */
+  .mode-tabs { display: flex; gap: 8px; margin-bottom: 1.25rem; }
+  .mode-tab { flex: 1; padding: 11px; border-radius: 12px; border: 1.5px solid #d2d2d7; background: #fff; color: #6e6e73; font-size: 15px; font-weight: 500; cursor: pointer; text-align: center; transition: all 0.15s; }
+  .mode-tab.active { border-color: #0071e3; background: #f0f6ff; color: #0071e3; }
+  .mode-tab:hover:not(.active) { background: #f5f5f7; }
+
+  /* 基金卡片 */
   .fund-block { border: 1px solid #e5e5ea; border-radius: 12px; padding: 1rem; margin-bottom: 10px; position: relative; }
   .fund-block .fund-title { font-size: 13px; font-weight: 600; color: #0071e3; margin-bottom: 10px; }
   .remove-btn { position: absolute; top: 10px; right: 10px; background: none; border: none; color: #aeaeb2; font-size: 18px; cursor: pointer; }
   .remove-btn:hover { color: #ff3b30; }
   .fund-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-  .fubon-link { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #0071e3; border: 1px solid #c6dbf9; border-radius: 7px; padding: 4px 9px; background: #f0f6ff; text-decoration: none; white-space: nowrap; }
+  .fubon-link { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #0071e3; border: 1px solid #c6dbf9; border-radius: 7px; padding: 4px 9px; background: #f0f6ff; text-decoration: none; }
   .fubon-link:hover { background: #e0eeff; }
   .ratio-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
   .ratio-row label { font-size: 13px; color: #6e6e73; white-space: nowrap; }
@@ -50,18 +58,18 @@
   th { text-align: left; padding: 8px 10px; font-size: 12px; color: #6e6e73; font-weight: 500; border-bottom: 1px solid #e5e5ea; }
   td { padding: 10px; border-bottom: 1px solid #f2f2f7; }
   tr:last-child td { border-bottom: none; }
-  .best-banner { background: linear-gradient(135deg, #ffd60a, #ff9f0a); border-radius: 12px; padding: 14px 18px; color: #3a2500; margin-top: 1rem; }
-  .best-banner .bl { font-size: 13px; font-weight: 500; margin-bottom: 3px; }
-  .best-banner .bv { font-size: 20px; font-weight: 700; }
+  tr.sum-row { background: #f0f6ff; font-weight: 600; }
   .warn { background: #fff3cd; border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #856404; margin-top: 8px; display: none; }
   .summary-row { margin-top: 10px; font-size: 13px; padding: 10px 12px; background: #f5f5f7; border-radius: 10px; color: #3a3a3c; }
+  .section { display: none; }
+  .section.active { display: block; }
   @media (max-width: 500px) { .grid2, .metric-grid { grid-template-columns: 1fr 1fr; } }
 </style>
 </head>
 <body>
 <div class="container">
   <h1>富邦 VCCT 月配息計算器</h1>
-  <p class="subtitle">富邦人壽真豐利變額年金保險｜多檔基金比較版</p>
+  <p class="subtitle">富邦人壽真豐利變額年金保險</p>
 
   <!-- 基本設定 -->
   <div class="card">
@@ -85,31 +93,47 @@
     </div>
   </div>
 
-  <!-- 基金輸入 -->
-  <div class="card">
-    <h2>基金資料</h2>
-    <div id="ratio-total" class="ratio-total"></div>
-    <div id="funds-container"></div>
-    <button class="add-btn" onclick="addFund()">＋ 新增基金</button>
-    <div class="warn" id="warn"></div>
+  <!-- 模式切換 -->
+  <div class="mode-tabs">
+    <button class="mode-tab active" onclick="switchMode('alloc')">📊 配置試算</button>
+    <button class="mode-tab" onclick="switchMode('compare')">📈 基金比較</button>
   </div>
 
-  <button class="calc-btn" onclick="calculate()">計算並比較</button>
+  <!-- ── 配置試算 ── -->
+  <div id="section-alloc" class="section active">
+    <div class="card">
+      <h2>基金配置</h2>
+      <div id="ratio-total" class="ratio-total"></div>
+      <div id="alloc-funds"></div>
+      <button class="add-btn" onclick="addAllocFund()">＋ 新增基金</button>
+      <div class="warn" id="alloc-warn"></div>
+    </div>
+    <button class="calc-btn" onclick="calcAlloc()">計算配置試算</button>
+    <div class="results card" id="alloc-results" style="margin-top:1.25rem;">
+      <h2>配置試算結果</h2>
+      <div class="metric-grid" id="alloc-metrics"></div>
+      <table><thead><tr><th>排名</th><th>基金</th><th>配置</th><th>淨值</th><th>分配</th><th>月配息(TWD)</th><th>報酬率</th></tr></thead>
+      <tbody id="alloc-table"></tbody></table>
+      <div class="summary-row" id="alloc-summary"></div>
+    </div>
+  </div>
 
-  <!-- 結果 -->
-  <div class="results card" id="results" style="margin-top:1.25rem;">
-    <h2>計算結果</h2>
-    <div class="metric-grid" id="top-metrics"></div>
-    <table>
-      <thead>
-        <tr>
-          <th>排名</th><th>基金</th><th>配置</th><th>淨值</th><th>分配</th><th>月配息(TWD)</th><th>報酬率</th>
-        </tr>
-      </thead>
-      <tbody id="result-table"></tbody>
-    </table>
-    <div class="summary-row" id="summary-row"></div>
-    <div class="best-banner" id="best-banner"></div>
+  <!-- ── 基金比較 ── -->
+  <div id="section-compare" class="section">
+    <div class="card">
+      <h2>比較基金</h2>
+      <div id="compare-funds"></div>
+      <button class="add-btn" onclick="addCompareFund()">＋ 新增基金</button>
+      <div class="warn" id="compare-warn"></div>
+    </div>
+    <button class="calc-btn" onclick="calcCompare()">計算並比較</button>
+    <div class="results card" id="compare-results" style="margin-top:1.25rem;">
+      <h2>基金比較結果</h2>
+      <div class="metric-grid" id="compare-metrics"></div>
+      <table><thead><tr><th>排名</th><th>基金</th><th>淨值</th><th>分配</th><th>月配息(TWD)</th><th>年配息(TWD)</th><th>報酬率</th></tr></thead>
+      <tbody id="compare-table"></tbody></table>
+      <div class="summary-row" id="compare-summary"></div>
+    </div>
   </div>
 </div>
 
@@ -125,10 +149,17 @@ const PRESET_FUNDS = [
   { name: "MLE24", label: "MLE24｜貝萊德世界科技基金",       nav: 20.9900, dist: 0.1375 },
 ];
 
-let fundCount = 0;
+let allocCount = 0, compareCount = 0;
 
-function getFeeRate(premiumWan) {
-  const p = premiumWan * 10000;
+function switchMode(mode) {
+  document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('section-' + mode).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function getFeeRate(wan) {
+  const p = wan * 10000;
   if (p >= 10000000) return 0.02;
   if (p >= 5000000)  return 0.03;
   if (p >= 2000001)  return 0.04;
@@ -136,90 +167,69 @@ function getFeeRate(premiumWan) {
 }
 
 function updateFeeRate() {
-  const wan      = parseFloat(document.getElementById('premium').value) || 0;
-  const premium  = wan * 10000;
-  const rate     = getFeeRate(wan);
-  const feeCost  = premium * rate;
-  const effective = premium - feeCost;
+  const wan = parseFloat(document.getElementById('premium').value) || 0;
+  const rate = getFeeRate(wan);
+  const effective = wan * 10000 * (1 - rate);
   document.getElementById('fee-info').textContent =
-    `手續費 ${(rate*100).toFixed(0)}%｜費用 TWD ${fmt(feeCost)}｜實際投入 TWD ${fmt(effective)}`;
+    `手續費 ${(rate*100).toFixed(0)}%｜實際投入 TWD ${fmt(effective)}`;
 }
 
 function buildOptions() {
-  let opts = '<option value="">── 請選擇基金 ──</option>';
-  PRESET_FUNDS.forEach((f, i) => {
-    opts += `<option value="${i}">${f.label}</option>`;
-  });
-  opts += '<option value="custom">── 自訂輸入 ──</option>';
-  return opts;
+  let o = '<option value="">── 請選擇基金 ──</option>';
+  PRESET_FUNDS.forEach((f, i) => { o += `<option value="${i}">${f.label}</option>`; });
+  o += '<option value="custom">── 自訂輸入 ──</option>';
+  return o;
 }
 
-function addFund() {
-  fundCount++;
-  const div = document.createElement('div');
-  div.className = 'fund-block';
-  div.id = `fund-${fundCount}`;
-  div.innerHTML = `
+function fundBlockHTML(id, withRatio) {
+  return `
     <div class="fund-header">
-      <div class="fund-title">第 ${fundCount} 檔基金</div>
-      <a class="fubon-link" href="https://invest.fubonlife.com.tw/index.html" target="_blank">
-        🔗 富邦網站查詢
-      </a>
+      <div class="fund-title">第 ${id} 檔基金</div>
+      <a class="fubon-link" href="https://invest.fubonlife.com.tw/index.html" target="_blank">🔗 富邦網站查詢</a>
     </div>
-    <button class="remove-btn" onclick="removeFund(${fundCount})">✕</button>
-
+    <button class="remove-btn" onclick="this.parentElement.remove();${withRatio ? 'updateRatioTotal()' : ''}">✕</button>
     <div class="field" style="margin-bottom:10px;">
       <label>選擇基金</label>
-      <select id="sel-${fundCount}" onchange="onPresetChange(${fundCount})">
+      <select id="sel-${id}" onchange="onSelChange('${id}')">
         ${buildOptions()}
       </select>
     </div>
-
-    <div id="custom-fields-${fundCount}" style="display:none;">
+    <div id="custom-${id}" style="display:none;">
       <div class="grid2" style="margin-bottom:8px;">
-        <div class="field">
-          <label>基金名稱</label>
-          <input type="text" id="name-${fundCount}" placeholder="例：JFP11">
-        </div>
-        <div class="field">
-          <label>基金單位淨值（美金）</label>
-          <input type="number" id="nav-${fundCount}" placeholder="例：74.73" step="0.0001">
-        </div>
+        <div class="field"><label>基金名稱</label><input type="text" id="name-${id}" placeholder="例：JFP11"></div>
+        <div class="field"><label>基金單位淨值（美金）</label><input type="number" id="nav-${id}" placeholder="例：74.73" step="0.0001"></div>
       </div>
       <div class="field" style="margin-bottom:8px;">
         <label>每單位分配金額（美金）</label>
-        <input type="number" id="dist-${fundCount}" placeholder="例：0.693" step="0.0001">
+        <input type="number" id="dist-${id}" placeholder="例：0.693" step="0.0001">
       </div>
     </div>
-
-    <div class="ratio-row">
-      <label>配置比例</label>
-      <input type="number" id="ratio-${fundCount}" value="0" min="0" max="100" step="1" oninput="updateRatioTotal()">
-      <span style="font-size:14px; color:#6e6e73;">%</span>
-    </div>
+    ${withRatio ? `<div class="ratio-row"><label>配置比例</label><input type="number" id="ratio-${id}" value="0" min="0" max="100" step="1" oninput="updateRatioTotal()"><span style="font-size:14px;color:#6e6e73;">%</span></div>` : ''}
   `;
-  document.getElementById('funds-container').appendChild(div);
-  updateRatioTotal();
 }
 
-function onPresetChange(id) {
+function onSelChange(id) {
   const val = document.getElementById(`sel-${id}`).value;
-  document.getElementById(`custom-fields-${id}`).style.display =
-    val === 'custom' ? 'block' : 'none';
+  document.getElementById(`custom-${id}`).style.display = val === 'custom' ? 'block' : 'none';
 }
 
-function removeFund(id) {
-  const el = document.getElementById(`fund-${id}`);
-  if (el) el.remove();
+// ── 配置試算 ──
+function addAllocFund() {
+  allocCount++;
+  const id = 'a' + allocCount;
+  const div = document.createElement('div');
+  div.className = 'fund-block'; div.id = 'fund-' + id;
+  div.innerHTML = fundBlockHTML(id, true);
+  document.getElementById('alloc-funds').appendChild(div);
   updateRatioTotal();
 }
 
 function updateRatioTotal() {
   const inputs = document.querySelectorAll('[id^="ratio-"]');
   let total = 0;
-  inputs.forEach(inp => { total += parseFloat(inp.value) || 0; });
+  inputs.forEach(i => { total += parseFloat(i.value) || 0; });
   const el = document.getElementById('ratio-total');
-  if (inputs.length === 0) { el.className = 'ratio-total'; return; }
+  if (!inputs.length) { el.className = 'ratio-total'; return; }
   if (Math.abs(total - 100) < 0.01) {
     el.className = 'ratio-total ok';
     el.textContent = `✅ 配置比例總和：${total}%（正確）`;
@@ -231,128 +241,133 @@ function updateRatioTotal() {
 
 function getFundData(id) {
   const val   = document.getElementById(`sel-${id}`).value;
-  const ratio = parseFloat(document.getElementById(`ratio-${id}`).value) || 0;
+  const ratio = document.getElementById(`ratio-${id}`) ? parseFloat(document.getElementById(`ratio-${id}`).value) || 0 : 0;
   if (val === 'custom' || val === '') {
-    const name = (document.getElementById(`name-${id}`) || {}).value || `基金${id}`;
-    const nav  = parseFloat((document.getElementById(`nav-${id}`) || {}).value);
-    const dist = parseFloat((document.getElementById(`dist-${id}`) || {}).value);
-    return { name, nav, dist, ratio };
+    return {
+      name:  (document.getElementById(`name-${id}`) || {}).value || `基金${id}`,
+      nav:   parseFloat((document.getElementById(`nav-${id}`) || {}).value),
+      dist:  parseFloat((document.getElementById(`dist-${id}`) || {}).value),
+      ratio
+    };
   }
   const f = PRESET_FUNDS[parseInt(val)];
   return { name: f.name, nav: f.nav, dist: f.dist, ratio };
 }
 
-function fmt(n, dec=0) {
-  return n.toLocaleString('zh-TW', {minimumFractionDigits: dec, maximumFractionDigits: dec});
-}
-
-function calculate() {
-  const wan      = parseFloat(document.getElementById('premium').value) || 0;
-  const premium  = wan * 10000;
-  const feeRate  = getFeeRate(wan);
-  const usdRate  = parseFloat(document.getElementById('usdRate').value) || 0;
-  const warn     = document.getElementById('warn');
-  const blocks   = document.querySelectorAll('.fund-block');
-
-  if (blocks.length === 0) {
-    warn.style.display = 'block';
-    warn.textContent = '請先新增至少一檔基金。';
-    return;
-  }
+function calcAlloc() {
+  const wan    = parseFloat(document.getElementById('premium').value) || 0;
+  const prem   = wan * 10000;
+  const rate   = getFeeRate(wan);
+  const usdRate = parseFloat(document.getElementById('usdRate').value) || 0;
+  const warn   = document.getElementById('alloc-warn');
+  const blocks = document.querySelectorAll('#alloc-funds .fund-block');
+  if (!blocks.length) { showWarn(warn, '請新增至少一檔基金。'); return; }
 
   let totalRatio = 0;
   blocks.forEach(b => {
-    totalRatio += parseFloat(document.getElementById(`ratio-${b.id.split('-')[1]}`).value) || 0;
+    const id = b.id.replace('fund-', '');
+    totalRatio += parseFloat((document.getElementById(`ratio-${id}`) || {}).value) || 0;
   });
-  if (Math.abs(totalRatio - 100) > 0.01) {
-    warn.style.display = 'block';
-    warn.textContent = `配置比例總和為 ${totalRatio}%，必須等於 100%。`;
-    return;
-  }
+  if (Math.abs(totalRatio - 100) > 0.01) { showWarn(warn, `配置比例總和 ${totalRatio}%，需等於 100%。`); return; }
   warn.style.display = 'none';
 
-  const feeCost        = premium * feeRate;
-  const effectiveTotal = premium - feeCost;
+  const effective = prem * (1 - rate);
   const results = [];
-
-  for (const block of blocks) {
-    const id = block.id.split('-')[1];
+  for (const b of blocks) {
+    const id = b.id.replace('fund-', '');
     const { name, nav, dist, ratio } = getFundData(id);
-    if (!nav || !dist) {
-      warn.style.display = 'block';
-      warn.textContent = `「${name}」的淨值或分配金額未填寫。`;
-      return;
-    }
-    if (!ratio) {
-      warn.style.display = 'block';
-      warn.textContent = `「${name}」配置比例為 0，請填寫。`;
-      return;
-    }
-    const allocated  = effectiveTotal * (ratio / 100);
-    const units      = (allocated / usdRate) / nav;
-    const monthlyUsd = units * dist;
-    const monthlyTwd = monthlyUsd * usdRate;
-    const yearlyTwd  = monthlyTwd * 12;
-    const yieldRate  = (yearlyTwd / allocated) * 100;
-    results.push({ name, nav, dist, ratio, allocated, monthlyTwd, yearlyTwd, yieldRate });
+    if (!nav || !dist) { showWarn(warn, `「${name}」淨值或分配金額未填寫。`); return; }
+    if (!ratio)        { showWarn(warn, `「${name}」配置比例為 0。`); return; }
+    const alloc    = effective * (ratio / 100);
+    const units    = (alloc / usdRate) / nav;
+    const mTwd     = units * dist * usdRate;
+    const yTwd     = mTwd * 12;
+    const yieldR   = (yTwd / alloc) * 100;
+    results.push({ name, nav, dist, ratio, mTwd, yTwd, yieldR });
   }
 
-  results.sort((a, b) => b.yieldRate - a.yieldRate);
-  const medals = ['🥇', '🥈', '🥉'];
-  const tbody  = document.getElementById('result-table');
+  results.sort((a, b) => b.yieldR - a.yieldR);
+  const medals = ['🥇','🥈','🥉'];
+  const tbody  = document.getElementById('alloc-table');
   tbody.innerHTML = '';
-
-  let totalMonthly = 0, totalYearly = 0;
+  let sumM = 0, sumY = 0;
   results.forEach((r, i) => {
-    totalMonthly += r.monthlyTwd;
-    totalYearly  += r.yearlyTwd;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${medals[i] || (i+1)+'.'}  </td>
-      <td>${r.name}</td>
-      <td>${r.ratio}%</td>
-      <td>${fmt(r.nav, 4)}</td>
-      <td>${fmt(r.dist, 4)}</td>
-      <td><strong>TWD ${fmt(Math.round(r.monthlyTwd))}</strong></td>
-      <td><strong>${r.yieldRate.toFixed(2)}%</strong></td>
-    `;
-    tbody.appendChild(tr);
+    sumM += r.mTwd; sumY += r.yTwd;
+    tbody.innerHTML += `<tr><td>${medals[i]||i+1+'.'}</td><td>${r.name}</td><td>${r.ratio}%</td><td>${fmt(r.nav,4)}</td><td>${fmt(r.dist,4)}</td><td><b>TWD ${fmt(Math.round(r.mTwd))}</b></td><td><b>${r.yieldR.toFixed(2)}%</b></td></tr>`;
   });
+  tbody.innerHTML += `<tr class="sum-row"><td colspan="2">合計</td><td>100%</td><td colspan="2"></td><td>TWD ${fmt(Math.round(sumM))}</td><td>${((sumY/effective)*100).toFixed(2)}%</td></tr>`;
 
-  // 合計列
-  const totalYield = (totalYearly / effectiveTotal) * 100;
-  const sumTr = document.createElement('tr');
-  sumTr.style.cssText = 'background:#f0f6ff; font-weight:600;';
-  sumTr.innerHTML = `
-    <td colspan="2">合計</td><td>100%</td><td colspan="2"></td>
-    <td>TWD ${fmt(Math.round(totalMonthly))}</td>
-    <td>${totalYield.toFixed(2)}%</td>
+  document.getElementById('alloc-metrics').innerHTML = `
+    <div class="metric"><div class="m-label">💰 手續費率</div><div class="m-val">${(rate*100).toFixed(0)}%</div></div>
+    <div class="metric"><div class="m-label">📅 每月總配息</div><div class="m-val">TWD ${fmt(Math.round(sumM))}</div></div>
+    <div class="metric"><div class="m-label">📈 綜合年化報酬</div><div class="m-val">${((sumY/effective)*100).toFixed(2)}%</div></div>
   `;
-  tbody.appendChild(sumTr);
-
-  document.getElementById('top-metrics').innerHTML = `
-    <div class="metric"><div class="m-label">💰 手續費率</div><div class="m-val">${(feeRate*100).toFixed(0)}%</div></div>
-    <div class="metric"><div class="m-label">📅 每月總配息</div><div class="m-val">TWD ${fmt(Math.round(totalMonthly))}</div></div>
-    <div class="metric"><div class="m-label">📈 綜合年化報酬率</div><div class="m-val">${totalYield.toFixed(2)}%</div></div>
-  `;
-
-  document.getElementById('summary-row').innerHTML =
-    `實際投入 TWD ${fmt(Math.round(effectiveTotal))}（保費 ${wan} 萬 扣除手續費 TWD ${fmt(Math.round(feeCost))}）｜每年配息 TWD ${fmt(Math.round(totalYearly))}`;
-
-  const best = results[0];
-  document.getElementById('best-banner').innerHTML = `
-    <div class="bl">🏆 最高報酬率基金</div>
-    <div class="bv">${best.name}（配置 ${best.ratio}%）</div>
-    <div style="margin-top:4px; font-size:14px;">月配息 TWD ${fmt(Math.round(best.monthlyTwd))}　年化報酬率 ${best.yieldRate.toFixed(2)}%</div>
-  `;
-
-  document.getElementById('results').classList.add('show');
-  document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+  document.getElementById('alloc-summary').textContent =
+    `實際投入 TWD ${fmt(Math.round(effective))}（保費 ${wan} 萬 扣除手續費 TWD ${fmt(Math.round(prem*rate))}）｜每年配息 TWD ${fmt(Math.round(sumY))}`;
+  document.getElementById('alloc-results').classList.add('show');
+  document.getElementById('alloc-results').scrollIntoView({ behavior:'smooth' });
 }
 
-// 預設 2 檔空白基金
-addFund();
-addFund();
+// ── 基金比較 ──
+function addCompareFund() {
+  compareCount++;
+  const id = 'c' + compareCount;
+  const div = document.createElement('div');
+  div.className = 'fund-block'; div.id = 'fund-' + id;
+  div.innerHTML = fundBlockHTML(id, false);
+  document.getElementById('compare-funds').appendChild(div);
+}
+
+function calcCompare() {
+  const wan    = parseFloat(document.getElementById('premium').value) || 0;
+  const prem   = wan * 10000;
+  const rate   = getFeeRate(wan);
+  const usdRate = parseFloat(document.getElementById('usdRate').value) || 0;
+  const warn   = document.getElementById('compare-warn');
+  const blocks = document.querySelectorAll('#compare-funds .fund-block');
+  if (!blocks.length) { showWarn(warn, '請新增至少一檔基金。'); return; }
+  warn.style.display = 'none';
+
+  const effective = prem * (1 - rate);
+  const results = [];
+  for (const b of blocks) {
+    const id = b.id.replace('fund-', '');
+    const { name, nav, dist } = getFundData(id);
+    if (!nav || !dist) { showWarn(warn, `「${name}」淨值或分配金額未填寫。`); return; }
+    const units  = (effective / usdRate) / nav;
+    const mTwd   = units * dist * usdRate;
+    const yTwd   = mTwd * 12;
+    const yieldR = (yTwd / effective) * 100;
+    results.push({ name, nav, dist, mTwd, yTwd, yieldR });
+  }
+
+  results.sort((a, b) => b.yieldR - a.yieldR);
+  const medals = ['🥇','🥈','🥉'];
+  const tbody  = document.getElementById('compare-table');
+  tbody.innerHTML = '';
+  results.forEach((r, i) => {
+    tbody.innerHTML += `<tr${i===0?' style="background:#fff8e6;font-weight:600;"':''}><td>${medals[i]||i+1+'.'}</td><td>${r.name}</td><td>${fmt(r.nav,4)}</td><td>${fmt(r.dist,4)}</td><td><b>TWD ${fmt(Math.round(r.mTwd))}</b></td><td>TWD ${fmt(Math.round(r.yTwd))}</td><td><b>${r.yieldR.toFixed(2)}%</b></td></tr>`;
+  });
+
+  const best = results[0], worst = results[results.length-1];
+  document.getElementById('compare-metrics').innerHTML = `
+    <div class="metric"><div class="m-label">🏆 最高月配息</div><div class="m-val">TWD ${fmt(Math.round(best.mTwd))}</div></div>
+    <div class="metric"><div class="m-label">📈 最高年化報酬率</div><div class="m-val">${best.yieldR.toFixed(2)}%</div></div>
+    <div class="metric"><div class="m-label">💡 最高 vs 最低差</div><div class="m-val">TWD ${fmt(Math.round(best.mTwd - worst.mTwd))}/月</div></div>
+  `;
+  document.getElementById('compare-summary').textContent =
+    `相同保費 ${wan} 萬（手續費 ${(rate*100).toFixed(0)}%，實際投入 TWD ${fmt(Math.round(effective))}）下各基金每月配息差異`;
+
+  document.getElementById('compare-results').classList.add('show');
+  document.getElementById('compare-results').scrollIntoView({ behavior:'smooth' });
+}
+
+function showWarn(el, msg) { el.style.display = 'block'; el.textContent = msg; }
+function fmt(n, dec=0) { return n.toLocaleString('zh-TW', {minimumFractionDigits:dec, maximumFractionDigits:dec}); }
+
+// 預設各載入 2 檔
+addAllocFund(); addAllocFund();
+addCompareFund(); addCompareFund();
 updateFeeRate();
 </script>
 </body>
