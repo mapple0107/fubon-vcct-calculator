@@ -16,12 +16,15 @@
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .field { display: flex; flex-direction: column; gap: 5px; }
   .field label { font-size: 13px; color: #6e6e73; }
-  .field input { font-size: 15px; padding: 9px 11px; border-radius: 10px; border: 1px solid #d2d2d7; background: #f5f5f7; color: #1d1d1f; width: 100%; }
-  .field input:focus { outline: none; border-color: #0071e3; background: #fff; }
+  .field input, .field select {
+    font-size: 15px; padding: 9px 11px; border-radius: 10px;
+    border: 1px solid #d2d2d7; background: #f5f5f7; color: #1d1d1f; width: 100%;
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: #0071e3; background: #fff; }
   .field .hint { font-size: 11px; color: #aeaeb2; }
   .fund-block { border: 1px solid #e5e5ea; border-radius: 12px; padding: 1rem; margin-bottom: 10px; position: relative; }
   .fund-block .fund-title { font-size: 13px; font-weight: 600; color: #0071e3; margin-bottom: 10px; }
-  .remove-btn { position: absolute; top: 10px; right: 10px; background: none; border: none; color: #aeaeb2; font-size: 18px; cursor: pointer; line-height: 1; }
+  .remove-btn { position: absolute; top: 10px; right: 10px; background: none; border: none; color: #aeaeb2; font-size: 18px; cursor: pointer; }
   .remove-btn:hover { color: #ff3b30; }
   .add-btn { width: 100%; padding: 10px; border-radius: 10px; border: 1.5px dashed #d2d2d7; background: none; color: #0071e3; font-size: 14px; cursor: pointer; margin-top: 4px; }
   .add-btn:hover { background: #f0f6ff; }
@@ -35,7 +38,7 @@
   .metric .m-val { font-size: 20px; font-weight: 600; color: #0071e3; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th { text-align: left; padding: 8px 10px; font-size: 12px; color: #6e6e73; font-weight: 500; border-bottom: 1px solid #e5e5ea; }
-  td { padding: 10px 10px; border-bottom: 1px solid #f2f2f7; }
+  td { padding: 10px; border-bottom: 1px solid #f2f2f7; }
   tr:last-child td { border-bottom: none; }
   tr.best td { background: #fff8e6; font-weight: 600; }
   .medal { font-size: 16px; }
@@ -43,7 +46,11 @@
   .best-banner .bl { font-size: 13px; font-weight: 500; margin-bottom: 3px; }
   .best-banner .bv { font-size: 20px; font-weight: 700; }
   .warn { background: #fff3cd; border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #856404; margin-top: 8px; display: none; }
-  .fubon-link { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: #0071e3; border: 1px solid #c6dbf9; border-radius: 8px; padding: 5px 10px; background: #f0f6ff; text-decoration: none; margin-bottom: 10px; }
+  .tag { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 6px; margin-left: 6px; font-weight: 500; }
+  .tag-wb { background: #e8f4fd; color: #0071e3; }
+  .tag-wr { background: #edfaf1; color: #1a8a3c; }
+  select option.preset { font-weight: 500; }
+  .preset-badge { font-size: 11px; color: #0071e3; margin-left: 4px; }
   @media (max-width: 500px) { .grid3, .metric-grid { grid-template-columns: 1fr 1fr; } th:nth-child(3), td:nth-child(3) { display: none; } }
 </style>
 </head>
@@ -74,9 +81,6 @@
   <!-- 基金輸入 -->
   <div class="card">
     <h2>基金資料</h2>
-    <a class="fubon-link" href="https://invest.fubonlife.com.tw/index.html" target="_blank">
-      🔗 前往富邦網站查詢基金數據
-    </a>
     <div id="funds-container"></div>
     <button class="add-btn" onclick="addFund()">＋ 新增基金</button>
     <div class="warn" id="warn"></div>
@@ -107,33 +111,84 @@
 </div>
 
 <script>
+// ── 您持有的 8 檔基金預設資料（最新數值）──
+const PRESET_FUNDS = [
+  { name: "JFP11", label: "JFP11｜摩根多重收益(美元對沖)",   nav: 74.7300, dist: 0.6930, type: "wb" },
+  { name: "ACC3",  label: "ACC3｜安聯收益成長基金",           nav:  9.4100, dist: 0.0750, type: "wr" },
+  { name: "IGB5",  label: "IGB5｜景順環球高評級企業債券",     nav:  6.9938, dist: 0.0510, type: "wb" },
+  { name: "FRP4",  label: "FRP4｜富蘭克林穩定月收益",         nav:  9.8300, dist: 0.0670, type: "wb" },
+  { name: "DSP5",  label: "DSP5｜安聯收益成長(美元)",         nav:  8.7391, dist: 0.0550, type: "wb" },
+  { name: "SCP6",  label: "SCP6｜施羅德環球收益成長",         nav: 141.7219, dist: 1.1841, type: "wb" },
+  { name: "ESC1",  label: "ESC1｜摩根多元入息成長",           nav:  8.3700, dist: 0.0687, type: "wr" },
+  { name: "MLE24", label: "MLE24｜貝萊德世界科技基金",        nav: 20.9900, dist: 0.1375, type: "wb" },
+];
+
 let fundCount = 0;
 
-function addFund() {
+function buildOptions() {
+  let opts = '<option value="">── 自訂輸入 ──</option>';
+  PRESET_FUNDS.forEach((f, i) => {
+    const tag = f.type === 'wb' ? '海外' : '國內';
+    opts += `<option value="${i}" class="preset">${f.label}（${tag}）</option>`;
+  });
+  return opts;
+}
+
+function addFund(presetIndex = null) {
   fundCount++;
   const div = document.createElement('div');
   div.className = 'fund-block';
   div.id = `fund-${fundCount}`;
+
+  const preset = presetIndex !== null ? PRESET_FUNDS[presetIndex] : null;
+  const selVal = presetIndex !== null ? presetIndex : '';
+  const navVal = preset ? preset.nav : '';
+  const distVal = preset ? preset.dist : '';
+  const nameVal = preset ? preset.name : '';
+
   div.innerHTML = `
     <div class="fund-title">第 ${fundCount} 檔基金</div>
     <button class="remove-btn" onclick="removeFund(${fundCount})">✕</button>
+
+    <div class="field" style="margin-bottom:10px;">
+      <label>選擇基金（或自訂輸入）</label>
+      <select id="sel-${fundCount}" onchange="onPresetChange(${fundCount})">
+        ${buildOptions()}
+      </select>
+    </div>
+
     <div class="grid2" style="margin-bottom:8px;">
       <div class="field">
         <label>基金名稱</label>
-        <input type="text" id="name-${fundCount}" placeholder="例：JFP11">
+        <input type="text" id="name-${fundCount}" placeholder="例：JFP11" value="${nameVal}">
       </div>
       <div class="field">
         <label>基金單位淨值（美金）</label>
-        <input type="number" id="nav-${fundCount}" placeholder="例：74.73" step="0.0001">
+        <input type="number" id="nav-${fundCount}" placeholder="例：74.73" step="0.0001" value="${navVal}">
       </div>
     </div>
     <div class="field">
       <label>每單位分配金額（美金）</label>
-      <input type="number" id="dist-${fundCount}" placeholder="例：0.693" step="0.0001">
-      <span class="hint">Distribution per unit</span>
+      <input type="number" id="dist-${fundCount}" placeholder="例：0.693" step="0.0001" value="${distVal}">
+      <span class="hint">※ 數值來自富邦網站最新配息資料，可手動修改</span>
     </div>
   `;
+
   document.getElementById('funds-container').appendChild(div);
+
+  if (presetIndex !== null) {
+    document.getElementById(`sel-${fundCount}`).value = presetIndex;
+  }
+}
+
+function onPresetChange(id) {
+  const sel = document.getElementById(`sel-${id}`);
+  const idx = sel.value;
+  if (idx === '') return;
+  const f = PRESET_FUNDS[parseInt(idx)];
+  document.getElementById(`name-${id}`).value = f.name;
+  document.getElementById(`nav-${id}`).value  = f.nav;
+  document.getElementById(`dist-${id}`).value = f.dist;
 }
 
 function removeFund(id) {
@@ -146,12 +201,12 @@ function fmt(n, dec=0) {
 }
 
 function calculate() {
-  const premium  = parseFloat(document.getElementById('premium').value) || 0;
-  const feeRate  = parseFloat(document.getElementById('feeRate').value) / 100 || 0;
-  const usdRate  = parseFloat(document.getElementById('usdRate').value) || 0;
-  const warn     = document.getElementById('warn');
+  const premium = parseFloat(document.getElementById('premium').value) || 0;
+  const feeRate = parseFloat(document.getElementById('feeRate').value) / 100 || 0;
+  const usdRate = parseFloat(document.getElementById('usdRate').value) || 0;
+  const warn    = document.getElementById('warn');
+  const blocks  = document.querySelectorAll('.fund-block');
 
-  const blocks = document.querySelectorAll('.fund-block');
   if (blocks.length === 0) {
     warn.style.display = 'block';
     warn.textContent = '請先新增至少一檔基金。';
@@ -179,15 +234,14 @@ function calculate() {
     const monthlyTwd       = monthlyUsd * usdRate;
     const yearlyTwd        = monthlyTwd * 12;
     const yieldRate        = (yearlyTwd / effectivePremium) * 100;
-
     results.push({ name, nav, dist, monthlyTwd, yearlyTwd, yieldRate });
   }
 
   results.sort((a, b) => b.yieldRate - a.yieldRate);
-
   const medals = ['🥇', '🥈', '🥉'];
   const tbody = document.getElementById('result-table');
   tbody.innerHTML = '';
+
   results.forEach((r, i) => {
     const tr = document.createElement('tr');
     if (i === 0) tr.className = 'best';
@@ -203,9 +257,9 @@ function calculate() {
     tbody.appendChild(tr);
   });
 
-  const best = results[0];
+  const best  = results[0];
   const worst = results[results.length - 1];
-  const diff = Math.round(best.monthlyTwd - worst.monthlyTwd);
+  const diff  = Math.round(best.monthlyTwd - worst.monthlyTwd);
 
   document.getElementById('top-metrics').innerHTML = `
     <div class="metric">
@@ -232,9 +286,8 @@ function calculate() {
   document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
 }
 
-// 預設加入兩檔基金
-addFund();
-addFund();
+// 預設載入全部 8 檔基金
+PRESET_FUNDS.forEach((_, i) => addFund(i));
 </script>
 </body>
 </html>
