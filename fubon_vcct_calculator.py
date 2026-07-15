@@ -25,14 +25,14 @@ PRODUCT  = "VCCT"      # 商品代碼
 # ^ 符號代表特殊字元編碼，實際代碼需從網站確認
 # 以下為正確解析後的代碼：
 FUNDS = [
-    {"name": "JFP11", "code": "JFN3-JFP11",     "prefix": "wb"},  # $W$WB → wb, JF^N3 → JFN3
+    {"name": "JFP11", "code": "JFZN3-JFP11",  "prefix": "wb"},  # $W$WB → wb, JF^N3 → JFN3
     {"name": "ACC3",  "code": "ACTI71-ACC3",     "prefix": "wr"},  # $W$WR → wr
-    {"name": "IGB5",  "code": "CTP0-IGB5",       "prefix": "wb"},  # CT^P0 → CTP0
-    {"name": "FRP4",  "code": "FL92-FRP4",       "prefix": "wb"},  # FL^92 → FL92
-    {"name": "DSP5",  "code": "TL64-DSP5",       "prefix": "wb"},  # TL^64 → TL64
-    {"name": "SCP6",  "code": "PYW3-SCP6",       "prefix": "wb"},  # PY^W3 → PYW3
+    {"name": "IGB5",  "code": "CTZP0-IGB5",  "prefix": "wb"},  # CT^P0 → CTP0
+    {"name": "FRP4",  "code": "FLZ92-FRP4",  "prefix": "wb"},  # FL^92 → FL92
+    {"name": "DSP5",  "code": "TLZ64-DSP5",  "prefix": "wb"},  # TL^64 → TL64
+    {"name": "SCP6",  "code": "PYZW3-SCP6",  "prefix": "wb"},  # PY^W3 → PYW3
     {"name": "ESC1",  "code": "ACCP138-ESC1",    "prefix": "wr"},  # $W$WR → wr
-    {"name": "MLE24", "code": "SHV9-MLE24",      "prefix": "wb"},  # SH^V9 → SHV9
+    {"name": "MLE24", "code": "SHZV9-MLE24", "prefix": "wb"},  # SH^V9 → SHV9
 ]
 # ────────────────────────────────────────────────────────────────
 
