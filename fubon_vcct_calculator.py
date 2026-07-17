@@ -216,63 +216,6 @@ def print_results(results):
     print()
 
 
-def main():
-    print("═" * 60)
-    print("  富邦 VCCT 月配息計算器")
-    print("═" * 60)
-    print(f"  保費：TWD {PREMIUM:,.0f}　費用率：{FEE_RATE*100:.1f}%　匯率：{USD_RATE}")
-    print(f"  共 {len(FUNDS)} 檔基金待查詢")
-    print("═" * 60)
-
-    check_dependencies()
-
-    print("\n🌐 啟動瀏覽器...")
-    driver = make_driver()
-    results = []
-    errors  = []
-
-    try:
-        for i, fund in enumerate(FUNDS, 1):
-            print(f"  [{i}/{len(FUNDS)}] {fund['name']:<8}", end=" ", flush=True)
-            nav, nav_date, dist = fetch_fund_data(driver, fund)
-
-            if nav and dist:
-                r = calculate(nav, dist, fund["name"])
-                results.append(r)
-                print(f"✅ 淨值={nav:.4f}  分配={dist:.4f}  "
-                      f"月配息 TWD {r['月配息(TWD)']:,.0f}  "
-                      f"報酬率 {r['年化報酬率']:.2f}%")
-            elif nav and not dist:
-                print(f"⚠️  淨值={nav:.4f}  但無配息資料")
-                errors.append(fund["name"])
-            else:
-                # 診斷：印出頁面標題
-                title = diagnose_url(driver, fund)
-                print(f"❌ 代碼可能錯誤 → 頁面標題：{title[:40]}")
-                errors.append(fund["name"])
-
-    finally:
-        driver.quit()
-        print("\n🔒 瀏覽器已關閉")
-
-    if errors:
-        print(f"\n⚠️  以下基金需確認代碼：{', '.join(errors)}")
-
-    if not results:
-        print("\n❌ 沒有取得任何有效資料。")
-        return
-
-    print_results(results)
-    auto_update_web(results)
-
-
-if __name__ == "__main__":
-    main()
-
-
-# ══════════════════════════════════════════════════
-# 自動更新網頁並推送到 GitHub
-# ══════════════════════════════════════════════════
 
 def update_html(results, html_path):
     """把最新淨值和分配金額寫入 index.html"""
@@ -386,3 +329,61 @@ def auto_update_web(results):
             print(f"  ℹ️  {repo} 無變動，略過")
 
     print("\n✅ 網頁更新完成！")
+
+def main():
+    print("═" * 60)
+    print("  富邦 VCCT 月配息計算器")
+    print("═" * 60)
+    print(f"  保費：TWD {PREMIUM:,.0f}　費用率：{FEE_RATE*100:.1f}%　匯率：{USD_RATE}")
+    print(f"  共 {len(FUNDS)} 檔基金待查詢")
+    print("═" * 60)
+
+    check_dependencies()
+
+    print("\n🌐 啟動瀏覽器...")
+    driver = make_driver()
+    results = []
+    errors  = []
+
+    try:
+        for i, fund in enumerate(FUNDS, 1):
+            print(f"  [{i}/{len(FUNDS)}] {fund['name']:<8}", end=" ", flush=True)
+            nav, nav_date, dist = fetch_fund_data(driver, fund)
+
+            if nav and dist:
+                r = calculate(nav, dist, fund["name"])
+                results.append(r)
+                print(f"✅ 淨值={nav:.4f}  分配={dist:.4f}  "
+                      f"月配息 TWD {r['月配息(TWD)']:,.0f}  "
+                      f"報酬率 {r['年化報酬率']:.2f}%")
+            elif nav and not dist:
+                print(f"⚠️  淨值={nav:.4f}  但無配息資料")
+                errors.append(fund["name"])
+            else:
+                # 診斷：印出頁面標題
+                title = diagnose_url(driver, fund)
+                print(f"❌ 代碼可能錯誤 → 頁面標題：{title[:40]}")
+                errors.append(fund["name"])
+
+    finally:
+        driver.quit()
+        print("\n🔒 瀏覽器已關閉")
+
+    if errors:
+        print(f"\n⚠️  以下基金需確認代碼：{', '.join(errors)}")
+
+    if not results:
+        print("\n❌ 沒有取得任何有效資料。")
+        return
+
+    print_results(results)
+    auto_update_web(results)
+
+
+if __name__ == "__main__":
+    main()
+
+
+# ══════════════════════════════════════════════════
+# 自動更新網頁並推送到 GitHub
+# ══════════════════════════════════════════════════
