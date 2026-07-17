@@ -263,7 +263,126 @@ def main():
         return
 
     print_results(results)
+    auto_update_web(results)
 
 
 if __name__ == "__main__":
     main()
+
+
+# ══════════════════════════════════════════════════
+# 自動更新網頁並推送到 GitHub
+# ══════════════════════════════════════════════════
+
+def update_html(results, html_path):
+    """把最新淨值和分配金額寫入 index.html"""
+    import re
+
+    with open(html_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    updated = False
+    for r in results:
+        name = r["基金名稱"]
+        nav  = r["淨值"]
+        dist = r["每單位分配"]
+
+        # 比對 PRESET_FUNDS 陣列中的基金，更新 nav 和 dist
+        # 格式： { name:"JFP11", label:"...", nav:74.7300, dist:0.6930 },
+        pattern = r'(name:"' + re.escape(name) + r'".*?nav:)[\d.]+(\s*,\s*dist:)[\d.]+'
+        replacement = rf'\g<1>{nav}\g<2>{dist}'
+        new_content = re.sub(pattern, replacement, content)
+
+        if new_content != content:
+            content = new_content
+            updated = True
+            print(f"  ✅ {name}：淨值={nav}，分配={dist}")
+        else:
+            print(f"  ⚠️  {name}：找不到對應欄位，略過")
+
+    if updated:
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(content)
+    return updated
+
+
+def push_to_github(repo_name, html_path, token, username, date_str):
+    """把更新後的 index.html 推送到 GitHub"""
+    import base64
+    import urllib.request
+    import json
+
+    with open(html_path, "rb") as f:
+        content_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+    # 取得目前 SHA
+    url = f"https://api.github.com/repos/{username}/{repo_name}/contents/index.html"
+    req = urllib.request.Request(url, headers={
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github.v3+json"
+    })
+    with urllib.request.urlopen(req) as resp:
+        sha = json.loads(resp.read())["sha"]
+
+    # 推送新版本
+    data = json.dumps({
+        "message": f"自動更新基金淨值 {date_str}",
+        "content": content_b64,
+        "sha": sha
+    }).encode("utf-8")
+
+    req = urllib.request.Request(url, data=data, method="PUT", headers={
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github.v3+json",
+        "Content-Type": "application/json"
+    })
+    with urllib.request.urlopen(req) as resp:
+        result = json.loads(resp.read())
+        if "content" in result:
+            print(f"  ✅ {repo_name} 推送成功")
+        else:
+            print(f"  ❌ {repo_name} 推送失敗")
+
+
+def auto_update_web(results):
+    """自動更新兩個網頁並推送到 GitHub"""
+    import os
+    from datetime import datetime
+    if not TOKEN:
+        print("❌ 請設定環境變數 GITHUB_TOKEN")
+        return
+
+    TOKEN    = os.environ.get("GITHUB_TOKEN", "")
+    USERNAME = "mapple0107"
+    REPOS    = ["fubon-vcct-calculator", "fubon-calculator"]
+    DATE_STR = datetime.now().strftime("%Y-%m-%d")
+    TMP_HTML = "/tmp/index_updated.html"
+
+    print("\n🌐 開始更新網頁...")
+
+    for repo in REPOS:
+        print(f"\n  📄 {repo}")
+
+        # 從 GitHub 下載最新 index.html
+        import urllib.request, json, base64
+        url = f"https://api.github.com/repos/{USERNAME}/{repo}/contents/index.html"
+        req = urllib.request.Request(url, headers={
+            "Authorization": f"token {TOKEN}",
+            "Accept": "application/vnd.github.v3+json"
+        })
+        with urllib.request.urlopen(req) as resp:
+            r = json.loads(resp.read())
+            html_content = base64.b64decode(r["content"]).decode("utf-8")
+
+        with open(TMP_HTML, "w", encoding="utf-8") as f:
+            f.write(html_content)
+
+        # 更新淨值
+        updated = update_html(results, TMP_HTML)
+
+        if updated:
+            push_to_github(repo, TMP_HTML, TOKEN, USERNAME, DATE_STR)
+        else:
+            print(f"  ℹ️  {repo} 無變動，略過")
+
+    print("\n✅ 網頁更新完成！")
