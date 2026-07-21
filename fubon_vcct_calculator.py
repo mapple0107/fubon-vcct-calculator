@@ -231,8 +231,8 @@ def update_html(results, html_path):
         dist = r["每單位分配"]
 
         # 比對 PRESET_FUNDS 陣列中的基金，更新 nav 和 dist
-        # 格式： { name:"JFP11", label:"...", nav:74.7300, dist:0.6930 },
-        pattern = r'(name:"' + re.escape(name) + r'".*?nav:)[\d.]+(\s*,\s*dist:)[\d.]+'
+        # 格式彈性：name:"JFP11", label:"...", nav:任意數字, dist:任意數字
+        pattern = r'(\{ name:"' + re.escape(name) + r'".*?nav:)[\d.]+([\s\S]*?dist:)[\d.]+'
         replacement = rf'\g<1>{nav}\g<2>{dist}'
         new_content = re.sub(pattern, replacement, content)
 
