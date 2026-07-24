@@ -232,8 +232,8 @@ def update_html(results, html_path):
 
         # 比對 PRESET_FUNDS 陣列中的基金，更新 nav 和 dist
         # 格式彈性：name:"JFP11", label:"...", nav:任意數字, dist:任意數字
-        pattern = r'(\{ name:"' + re.escape(name) + r'".*?nav:)[\d.]+([\s\S]*?dist:)[\d.]+'
-        replacement = rf'\g<1>{nav}\g<2>{dist}'
+        pattern = r'(name:"' + re.escape(name) + r'"[^}]*?nav:)([\d.]+)([^}]*?dist:)([\d.]+)'
+        replacement = rf'\g<1>{nav}\g<3>{dist}'
         new_content = re.sub(pattern, replacement, content)
 
         if new_content != content:
