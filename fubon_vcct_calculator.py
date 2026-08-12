@@ -68,16 +68,19 @@ def fetch_fund_data(driver, fund):
     driver.get(f"{BASE}/w/{p}/{p}02.djhtm?a={fund['code']}&product={PRODUCT}")
     try:
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.TAG_NAME, "table")))
-        time.sleep(1.5)
-        for row in driver.find_elements(By.CSS_SELECTOR, "table tr"):
-            cells = [td.text.strip() for td in row.find_elements(By.TAG_NAME, "td")]
-            for idx, cell in enumerate(cells):
-                if re.match(r"^\d{2}/\d{2}$|^\d{4}/\d{2}/\d{2}$", cell) and idx + 1 < len(cells):
-                    try:
-                        nav = float(cells[idx + 1])
-                        break
-                    except ValueError:
-                        continue
+        for attempt in range(3):
+            time.sleep(2.5 if attempt == 0 else 2)
+            for row in driver.find_elements(By.CSS_SELECTOR, "table tr"):
+                cells = [td.text.strip() for td in row.find_elements(By.TAG_NAME, "td")]
+                for idx, cell in enumerate(cells):
+                    if re.match(r"^\d{2}/\d{2}$|^\d{4}/\d{2}/\d{2}$", cell) and idx + 1 < len(cells):
+                        try:
+                            nav = float(cells[idx + 1])
+                            break
+                        except ValueError:
+                            continue
+                if nav is not None:
+                    break
             if nav is not None:
                 break
     except Exception:
