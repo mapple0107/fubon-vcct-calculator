@@ -12,62 +12,67 @@
   /* Header */
   header { display: flex; align-items: center; justify-content: space-between; padding: 16px 40px; border-bottom: 1px solid #eef1f5; position: sticky; top: 0; background: #fff; z-index: 10; }
   .brand { display: flex; align-items: center; gap: 10px; }
-  .avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg,#334155,#0f172a); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; font-weight: 600; overflow: hidden; flex-shrink: 0; }
-  .brand-name { font-size: 17px; font-weight: 700; color: #0f172a; white-space: nowrap; }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg,#334155,#0f172a); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; font-weight: 600; overflow: hidden; flex-shrink: 0; }
+  .brand-name { font-size: 17px; font-weight: 700; color: #2563eb; white-space: nowrap; }
   nav { display: flex; gap: 32px; }
   nav a { font-size: 15px; color: #475569; font-weight: 500; padding-bottom: 4px; border-bottom: 2px solid transparent; }
   nav a.active { color: #2563eb; border-bottom-color: #2563eb; }
   nav a:hover:not(.active) { color: #0f172a; }
-  .contact-btn { border: 1.5px solid #cbd5e1; color: #334155; font-size: 14px; font-weight: 500; padding: 9px 18px; border-radius: 999px; white-space: nowrap; }
-  .contact-btn:hover { background: #f8fafc; }
+  .contact-btn { border: 1.5px solid #2563eb; color: #2563eb; font-size: 14px; font-weight: 600; padding: 9px 20px; border-radius: 999px; white-space: nowrap; }
+  .contact-btn:hover { background: #eef4ff; }
   @media (max-width: 860px) { nav { display: none; } }
 
-  /* Hero */
-  .hero-wrap { position: relative; overflow: hidden; background: linear-gradient(160deg, #eef4ff 0%, #ffffff 55%); }
-  .hero-wrap svg.deco { position: absolute; right: -40px; top: 0; width: 640px; max-width: 60%; opacity: 0.55; pointer-events: none; }
-  .hero { position: relative; max-width: 1200px; margin: 0 auto; padding: 64px 40px 80px; display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 48px; align-items: center; }
-  .badge { display: inline-flex; align-items: center; gap: 6px; background: #e8f0ff; color: #2563eb; font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 999px; margin-bottom: 20px; }
-  .hero h1 { font-size: 40px; line-height: 1.35; font-weight: 800; color: #0f172a; margin-bottom: 18px; }
-  .hero p.desc { font-size: 15px; color: #64748b; line-height: 1.7; margin-bottom: 28px; max-width: 480px; }
-  .hero-actions { display: flex; gap: 12px; }
-  .btn { display: inline-flex; align-items: center; justify-content: center; padding: 13px 26px; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; border: none; }
-  .btn-primary { background: #2563eb; color: #fff; }
-  .btn-primary:hover { background: #1d4ed8; }
-  .btn-outline { background: #fff; color: #334155; border: 1.5px solid #cbd5e1; }
-  .btn-outline:hover { background: #f8fafc; }
+  /* Page background decoration */
+  .page-wrap { position: relative; overflow: hidden; background: linear-gradient(180deg, #eef6ff 0%, #f7fbff 45%, #ffffff 75%); }
+  .page-wrap svg.deco-top { position: absolute; top: -20px; right: -60px; width: 720px; max-width: 65%; opacity: 0.5; pointer-events: none; }
+  .page-wrap svg.deco-bottom { position: absolute; bottom: -10px; left: -60px; width: 640px; max-width: 60%; opacity: 0.4; pointer-events: none; transform: scaleX(-1); }
 
-  /* Preview card */
-  .preview-card { position: relative; background: #fff; border-radius: 20px; padding: 26px; box-shadow: 0 20px 45px -15px rgba(15,23,42,0.18); border: 1px solid #f1f5f9; }
-  .preview-head { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
-  .preview-icon { width: 34px; height: 34px; border-radius: 10px; background: #2563eb; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 16px; }
-  .preview-head h3 { font-size: 15px; font-weight: 700; color: #0f172a; }
-  .preview-label { font-size: 13px; color: #94a3b8; margin-bottom: 4px; }
-  .preview-value { font-size: 34px; font-weight: 800; color: #2563eb; margin-bottom: 20px; }
-  .preview-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-top: 1px solid #f1f5f9; font-size: 14px; }
-  .preview-row .rk { display: flex; align-items: center; gap: 8px; color: #64748b; }
-  .preview-row .rv { font-weight: 700; color: #0f172a; }
-  .preview-foot { margin-top: 12px; display: flex; align-items: center; justify-content: space-between; background: #eef4ff; border-radius: 12px; padding: 12px 16px; font-size: 14px; font-weight: 600; color: #1d4ed8; }
+  .main { position: relative; max-width: 1240px; margin: 0 auto; padding: 56px 40px 20px; text-align: center; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; background: #e8f0ff; color: #2563eb; font-size: 13px; font-weight: 600; padding: 7px 16px; border-radius: 999px; margin-bottom: 22px; }
+  .main h1 { font-size: 36px; font-weight: 800; color: #0f172a; margin-bottom: 14px; }
+  .main p.desc { font-size: 15px; color: #64748b; margin-bottom: 44px; }
 
-  /* Tools section */
-  .tools-section { max-width: 1200px; margin: 0 auto; padding: 72px 40px 90px; }
-  .tools-title { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 40px; }
-  .tools-title span { font-size: 22px; font-weight: 800; color: #0f172a; white-space: nowrap; }
-  .tools-title .line { flex: 1; max-width: 140px; height: 1px; background: linear-gradient(to right, transparent, #cbd5e1); }
-  .tools-title .line.right { background: linear-gradient(to left, transparent, #cbd5e1); }
-  .tools-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-  .tool-card { display: flex; align-items: center; gap: 18px; background: #fff; border: 1px solid #eef1f5; border-radius: 18px; padding: 26px; box-shadow: 0 8px 24px -12px rgba(15,23,42,0.10); }
+  /* Tool cards */
+  .tools-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; text-align: left; margin-bottom: 56px; }
+  .tool-card { background: #fff; border-radius: 22px; padding: 30px; box-shadow: 0 20px 45px -20px rgba(15,23,42,0.15); border: 1px solid #f1f5f9; }
+  .tool-card-head { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
   .tool-icon { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
   .tool-icon.blue { background: #e8f0ff; color: #2563eb; }
   .tool-icon.teal { background: #e3faf5; color: #0d9488; }
-  .tool-info { flex: 1; }
-  .tool-info h4 { font-size: 17px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
-  .tool-info p { font-size: 13px; color: #94a3b8; }
-  .tool-go { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
-  .tool-go .circle { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; }
-  .tool-go .circle.blue { background: #2563eb; }
-  .tool-go .circle.teal { background: #0d9488; }
-  .tool-go span { font-size: 12px; font-weight: 600; color: #64748b; white-space: nowrap; }
-  @media (max-width: 860px) { .hero { grid-template-columns: 1fr; } .tools-grid { grid-template-columns: 1fr; } .hero h1 { font-size: 30px; } header { padding: 14px 20px; } .hero, .tools-section { padding-left: 20px; padding-right: 20px; } }
+  .tool-card-head h3 { font-size: 19px; font-weight: 800; color: #0f172a; margin-bottom: 3px; }
+  .tool-card-head p { font-size: 13px; color: #94a3b8; }
+
+  .field-row { display: flex; align-items: center; justify-content: space-between; background: #f8fafc; border-radius: 12px; padding: 13px 16px; margin-bottom: 10px; font-size: 14px; }
+  .field-row .fk { display: flex; align-items: center; gap: 8px; color: #64748b; }
+  .field-row .fv { font-weight: 700; color: #0f172a; }
+
+  .card-btn { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 14px; border-radius: 12px; font-size: 15px; font-weight: 700; color: #fff; margin: 18px 0 14px; }
+  .card-btn.blue { background: #2563eb; }
+  .card-btn.blue:hover { background: #1d4ed8; }
+  .card-btn.teal { background: #0d9488; }
+  .card-btn.teal:hover { background: #0b7d73; }
+
+  .result-row { display: flex; align-items: center; justify-content: space-between; border-radius: 12px; padding: 14px 16px; font-size: 14px; font-weight: 600; }
+  .result-row.blue { background: #eef4ff; color: #1d4ed8; }
+  .result-row.teal { background: #e3faf5; color: #0b7d73; }
+  .result-row .rv { font-size: 20px; font-weight: 800; }
+
+  /* Feature strip */
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 900px; margin: 0 auto 60px; text-align: center; }
+  .feature .f-icon { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; margin: 0 auto 12px; }
+  .feature:nth-child(1) .f-icon { background: #e8f0ff; color: #2563eb; }
+  .feature:nth-child(2) .f-icon { background: #e3faf5; color: #0d9488; }
+  .feature:nth-child(3) .f-icon { background: #fff4e5; color: #d97706; }
+  .feature h4 { font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+  .feature p { font-size: 13px; color: #94a3b8; }
+
+  @media (max-width: 860px) {
+    header { padding: 14px 20px; }
+    .main { padding: 40px 20px 10px; }
+    .main h1 { font-size: 26px; }
+    .tools-grid { grid-template-columns: 1fr; }
+    .features { grid-template-columns: 1fr; }
+  }
 
   footer { text-align: center; padding: 26px 20px; color: #94a3b8; font-size: 13px; border-top: 1px solid #eef1f5; }
 </style>
@@ -87,71 +92,74 @@
   <a class="contact-btn" href="mailto:mapple0107@gmail.com">聯絡我</a>
 </header>
 
-<div class="hero-wrap">
-  <svg class="deco" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg">
-    <polyline points="0,320 80,300 150,340 220,260 300,290 380,180 460,220 540,120 600,150" fill="none" stroke="#93c5fd" stroke-width="3"/>
-    <g fill="#bfdbfe">
-      <rect x="470" y="260" width="16" height="60"/>
-      <rect x="500" y="220" width="16" height="100"/>
-      <rect x="530" y="180" width="16" height="140"/>
-      <rect x="560" y="140" width="16" height="180"/>
+<div class="page-wrap">
+  <svg class="deco-top" viewBox="0 0 700 300" xmlns="http://www.w3.org/2000/svg">
+    <polyline points="0,220 90,190 170,230 250,150 330,180 410,100 490,140 570,60 650,90 700,40" fill="none" stroke="#93c5fd" stroke-width="2.5"/>
+    <g fill="#93c5fd">
+      <circle cx="90" cy="190" r="4"/><circle cx="250" cy="150" r="4"/><circle cx="410" cy="100" r="4"/><circle cx="570" cy="60" r="4"/><circle cx="700" cy="40" r="5"/>
     </g>
   </svg>
-  <div class="hero">
-    <div>
-      <div class="badge">🧮 免費理財試算工具</div>
-      <h1>讓複雜的財務試算，<br>變得清楚又簡單</h1>
-      <p class="desc">快速估算每月配息與複利累積，協助你更有方向地規劃未來。</p>
-      <div class="hero-actions">
-        <a class="btn btn-primary" href="calculator.html">開始試算</a>
-        <a class="btn btn-outline" href="calculator.html#basic">了解計算方式</a>
+  <svg class="deco-bottom" viewBox="0 0 700 300" xmlns="http://www.w3.org/2000/svg">
+    <polyline points="0,220 90,190 170,230 250,150 330,180 410,100 490,140 570,60 650,90 700,40" fill="none" stroke="#7dd3c8" stroke-width="2.5"/>
+    <g fill="#7dd3c8">
+      <circle cx="90" cy="190" r="4"/><circle cx="250" cy="150" r="4"/><circle cx="410" cy="100" r="4"/><circle cx="570" cy="60" r="4"/><circle cx="700" cy="40" r="5"/>
+    </g>
+  </svg>
+
+  <div class="main">
+    <div class="badge">🎁 免費理財試算工具</div>
+    <h1>選擇工具，開始你的理財試算</h1>
+    <p class="desc">用簡單的數字，看見每月現金流與長期累積成果。</p>
+
+    <div class="tools-grid">
+      <div class="tool-card">
+        <div class="tool-card-head">
+          <div class="tool-icon blue">🧮</div>
+          <div>
+            <h3>配息計算機</h3>
+            <p>快速估算每月現金流</p>
+          </div>
+        </div>
+        <div class="field-row"><div class="fk">💰 保費</div><div class="fv">200 萬元</div></div>
+        <div class="field-row"><div class="fk">% 手續費</div><div class="fv">4 %</div></div>
+        <div class="field-row"><div class="fk">↻ 美元匯率</div><div class="fv">32.200</div></div>
+        <a class="card-btn blue" href="calculator.html">開始配息試算 ›</a>
+        <div class="result-row blue"><span>💲 預估每月配息</span><span class="rv">TWD 24,000</span></div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-card-head">
+          <div class="tool-icon teal">📈</div>
+          <div>
+            <h3>定期定額</h3>
+            <p>試算時間與複利的累積效果</p>
+          </div>
+        </div>
+        <div class="field-row"><div class="fk">🏦 每月投入</div><div class="fv">10,000 元</div></div>
+        <div class="field-row"><div class="fk">% 預計年化報酬</div><div class="fv">6 %</div></div>
+        <div class="field-row"><div class="fk">📅 投資期間</div><div class="fv">20 年</div></div>
+        <a class="card-btn teal" href="dca.html">開始複利試算 ›</a>
+        <div class="result-row teal"><span>📈 預估累積成果</span><span class="rv">3,104,000 元</span></div>
       </div>
     </div>
 
-    <div class="preview-card">
-      <div class="preview-head">
-        <div class="preview-icon">$</div>
-        <h3>每月預估配息</h3>
+    <div class="features">
+      <div class="feature">
+        <div class="f-icon">👆</div>
+        <h4>操作簡單</h4>
+        <p>介面直觀，快速上手</p>
       </div>
-      <div class="preview-label">預估每月配息</div>
-      <div class="preview-value">TWD 24,000</div>
-      <div class="preview-row"><div class="rk">💰 保費</div><div class="rv">200 萬元</div></div>
-      <div class="preview-row"><div class="rk">% 手續費</div><div class="rv">4 %</div></div>
-      <div class="preview-row"><div class="rk">↻ 美金匯率</div><div class="rv">32.200 TWD/USD</div></div>
-      <div class="preview-foot"><span>📈 實際投入</span><span>TWD 1,920,000</span></div>
+      <div class="feature">
+        <div class="f-icon">⏱️</div>
+        <h4>即時計算</h4>
+        <p>輸入數字，立即看結果</p>
+      </div>
+      <div class="feature">
+        <div class="f-icon">🎁</div>
+        <h4>免費使用</h4>
+        <p>所有工具完全免費</p>
+      </div>
     </div>
-  </div>
-</div>
-
-<div class="tools-section">
-  <div class="tools-title">
-    <div class="line"></div>
-    <span>選擇你要使用的工具</span>
-    <div class="line right"></div>
-  </div>
-  <div class="tools-grid">
-    <a class="tool-card" href="calculator.html">
-      <div class="tool-icon blue">🧮</div>
-      <div class="tool-info">
-        <h4>配息計算機</h4>
-        <p>快速估算每月現金流</p>
-      </div>
-      <div class="tool-go">
-        <div class="circle blue">›</div>
-        <span>立即試算</span>
-      </div>
-    </a>
-    <a class="tool-card" href="dca.html">
-      <div class="tool-icon teal">📈</div>
-      <div class="tool-info">
-        <h4>定期定額</h4>
-        <p>看見時間與複利的力量</p>
-      </div>
-      <div class="tool-go">
-        <div class="circle teal">›</div>
-        <span>開始計算</span>
-      </div>
-    </a>
   </div>
 </div>
 
