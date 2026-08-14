@@ -57,6 +57,22 @@ def make_driver():
     return webdriver.Chrome(service=svc, options=opts)
 
 
+def _parse_date_key(date_str):
+    """把 MM/DD 或 YYYY/MM/DD 轉成可比較的日期物件，抓不到年份時用今年，
+    若因跨年造成日期看起來在未來，往前推一年。"""
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    try:
+        if len(date_str) == 5:  # MM/DD
+            d = datetime.strptime(f"{now.year}/{date_str}", "%Y/%m/%d")
+            if d > now + timedelta(days=2):
+                d = d.replace(year=now.year - 1)
+            return d
+        return datetime.strptime(date_str, "%Y/%m/%d")
+    except Exception:
+        return datetime.min
+
+
 def fetch_fund_data(driver, fund):
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
@@ -64,25 +80,29 @@ def fetch_fund_data(driver, fund):
     p = fund["prefix"]
     nav, dist = None, None
 
-    # 抓淨值
+    # 抓淨值：收集頁面上所有「日期＋淨值」配對，取日期最新的那一筆
+    # （避免頁面上有多個表格/區塊時，誤抓到非最新一列的舊資料）
     driver.get(f"{BASE}/w/{p}/{p}02.djhtm?a={fund['code']}&product={PRODUCT}")
     try:
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.TAG_NAME, "table")))
+        candidates = []
         for attempt in range(3):
             time.sleep(2.5 if attempt == 0 else 2)
+            candidates = []
             for row in driver.find_elements(By.CSS_SELECTOR, "table tr"):
                 cells = [td.text.strip() for td in row.find_elements(By.TAG_NAME, "td")]
                 for idx, cell in enumerate(cells):
                     if re.match(r"^\d{2}/\d{2}$|^\d{4}/\d{2}/\d{2}$", cell) and idx + 1 < len(cells):
                         try:
-                            nav = float(cells[idx + 1])
-                            break
+                            val = float(cells[idx + 1])
+                            candidates.append((cell, val))
                         except ValueError:
                             continue
-                if nav is not None:
-                    break
-            if nav is not None:
+            if candidates:
                 break
+        if candidates:
+            candidates.sort(key=lambda item: _parse_date_key(item[0]), reverse=True)
+            nav = candidates[0][1]
     except Exception:
         pass
 
