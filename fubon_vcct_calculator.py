@@ -191,7 +191,7 @@ def auto_update_web(results):
 
     for repo in REPOS:
         print(f"\n  📄 {repo}")
-        url = f"https://api.github.com/repos/{USERNAME}/{repo}/contents/index.html"
+        url = f"https://api.github.com/repos/{USERNAME}/{repo}/contents/calculator.html"
         r   = github_get(url)
         sha = r["sha"]
         html_content = base64.b64decode(r["content"]).decode("utf-8")
