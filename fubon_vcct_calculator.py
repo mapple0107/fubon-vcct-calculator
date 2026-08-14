@@ -181,26 +181,20 @@ def update_html(results, html_content):
     return html_content, updated
 
 
-def github_get(url):
-    ssl._create_default_https_context = ssl._create_unverified_context
-    import requests
-    return requests.get(url, headers={
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json"
-    }, verify=False).json()
+REPO_PATHS = {
+    "fubon-vcct-calculator": os.path.expanduser("~/Downloads/fubon-vcct-calculator-main"),
+    "fubon-calculator":      os.path.expanduser("~/Downloads/fubon-calculator"),
+}
 
 
-def github_put(url, data):
-    ssl._create_default_https_context = ssl._create_unverified_context
-    import requests
-    return requests.put(url, headers={
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3+json"
-    }, json=data, verify=False).json()
+def _run_git(args, cwd):
+    import subprocess
+    return subprocess.run(["git"] + args, cwd=cwd, capture_output=True, text=True)
 
 
 def auto_update_web(results):
-    """自動更新兩個網頁並推送到 GitHub"""
+    """直接在本機 git 資料夾修改 calculator.html，git pull/commit/push 到 GitHub
+    （改用本機 git 而不是 GitHub API，因為 API 版本一直沒有真的成功寫入，難以除錯）"""
     if not GITHUB_TOKEN:
         print("❌ 請設定環境變數 GITHUB_TOKEN")
         return
@@ -210,26 +204,48 @@ def auto_update_web(results):
     print("\n🌐 開始更新網頁...")
 
     for repo in REPOS:
-        print(f"\n  📄 {repo}")
-        url = f"https://api.github.com/repos/{USERNAME}/{repo}/contents/calculator.html"
-        r   = github_get(url)
-        sha = r["sha"]
-        html_content = base64.b64decode(r["content"]).decode("utf-8")
+        path = REPO_PATHS.get(repo)
+        print(f"\n  📄 {repo} ({path})")
+        if not path or not os.path.isdir(path):
+            print(f"  ❌ 找不到本機資料夾，略過")
+            continue
+
+        html_path = os.path.join(path, "calculator.html")
+
+        # 先 pull，確保基於最新版本修改（避免蓋掉手動改過的內容）
+        pull = _run_git(["pull", "--no-edit"], cwd=path)
+        if pull.returncode != 0:
+            print(f"  ⚠️  git pull 失敗：{pull.stderr.strip()[:200]}（仍嘗試繼續）")
+
+        if not os.path.isfile(html_path):
+            print(f"  ❌ 找不到 calculator.html，略過")
+            continue
+
+        with open(html_path, encoding="utf-8") as f:
+            html_content = f.read()
 
         new_html, updated = update_html(results, html_content)
 
-        if updated:
-            result = github_put(url, {
-                "message": f"自動更新基金淨值 {date_str}",
-                "content": base64.b64encode(new_html.encode("utf-8")).decode("utf-8"),
-                "sha": sha
-            })
-            if "content" in result:
-                print(f"  ✅ {repo} 推送成功")
-            else:
-                print(f"  ❌ {repo} 推送失敗：{result.get('message','')}")
+        if not updated:
+            print(f"  ℹ️  無變動，略過")
+            continue
+
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(new_html)
+
+        _run_git(["add", "calculator.html"], cwd=path)
+        commit = _run_git(["commit", "-m", f"自動更新基金淨值 {date_str}"], cwd=path)
+        if commit.returncode != 0 and "nothing to commit" in (commit.stdout + commit.stderr):
+            print(f"  ℹ️  git 無變動可提交，略過")
+            continue
+
+        remote_url = f"https://mapple0107:{GITHUB_TOKEN}@github.com/{USERNAME}/{repo}.git"
+        push = _run_git(["push", remote_url, "HEAD:main"], cwd=path)
+        if push.returncode == 0:
+            print(f"  ✅ {repo} 推送成功")
         else:
-            print(f"  ℹ️  {repo} 無變動，略過")
+            err = (push.stderr or push.stdout).strip()
+            print(f"  ❌ {repo} 推送失敗：{err[:300]}")
 
     print("\n✅ 網頁更新完成！")
 
