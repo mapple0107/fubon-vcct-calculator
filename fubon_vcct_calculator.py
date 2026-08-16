@@ -128,7 +128,40 @@ def fetch_fund_data(driver, fund):
     return nav, dist
 
 
-def calculate(nav, dist, name):
+PERF_LABELS = ["一週", "一個月", "本月", "本季", "三個月", "六個月", "九個月", "一年", "二年", "三年", "五年"]
+
+
+def fetch_perf_data(driver, fund):
+    """抓取「累積報酬率」頁面（{p}03.djhtm），回傳 {期間: 數值字串} 的 dict。
+    對應網址規律：wb01/wr01 淨值頁 → {p}02 淨值明細、{p}03 累積報酬率（wb/wr 皆同）。"""
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    p = fund["prefix"]
+    perf = {}
+    driver.get(f"{BASE}/w/{p}/{p}03.djhtm?a={fund['code']}&product={PRODUCT}")
+    try:
+        WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.TAG_NAME, "table")))
+        time.sleep(2.5)
+        for table in driver.find_elements(By.TAG_NAME, "table"):
+            rows = table.find_elements(By.TAG_NAME, "tr")
+            if len(rows) != 3:
+                continue
+            labels = [td.text.strip() for td in rows[1].find_elements(By.TAG_NAME, "td")]
+            values = [td.text.strip() for td in rows[2].find_elements(By.TAG_NAME, "td")]
+            if not labels or not any(lbl in PERF_LABELS for lbl in labels):
+                continue
+            for lbl, val in zip(labels, values):
+                if lbl in PERF_LABELS and val:
+                    perf[lbl] = val
+            if perf:
+                break
+    except Exception:
+        pass
+    return perf
+
+
+def calculate(nav, dist, name, perf=None):
     fee = PREMIUM * FEE_RATE
     eff = PREMIUM - fee
     units = (eff / USD_RATE) / nav
@@ -137,7 +170,8 @@ def calculate(nav, dist, name):
     return {
         "基金名稱": name, "淨值": nav, "每單位分配": dist,
         "月配息(TWD)": m_twd, "年配息(TWD)": y_twd,
-        "年化報酬率": (y_twd / (PREMIUM - PREMIUM*FEE_RATE)) * 100
+        "年化報酬率": (y_twd / (PREMIUM - PREMIUM*FEE_RATE)) * 100,
+        "績效": perf or {}
     }
 
 
@@ -162,12 +196,14 @@ def print_results(results):
 
 
 def update_html(results, html_content):
-    """把最新淨值寫入 HTML 內容並回傳"""
+    """把最新淨值與績效寫入 HTML 內容並回傳"""
     updated = False
     for r in results:
         name = r["基金名稱"]
         nav  = r["淨值"]
         dist = r["每單位分配"]
+        perf = r.get("績效") or {}
+
         # 比對格式：name:"JFP11", label:"...", nav:數字, dist:數字
         pattern     = r'(name:"' + re.escape(name) + r'"[^}]*?nav:)([\d.]+)([^}]*?dist:)([\d.]+)'
         replacement = rf'\g<1>{nav}\g<3>{dist}'
@@ -178,6 +214,18 @@ def update_html(results, html_content):
             print(f"  ✅ {name}：淨值={nav}，分配={dist}")
         else:
             print(f"  ⚠️  {name}：找不到對應欄位，略過")
+
+        # 比對格式：name:"JFP11" ... perf:{...}（可能是空物件或先前抓過的內容）
+        if perf:
+            perf_json = json.dumps(perf, ensure_ascii=False, separators=(",", ":"))
+            perf_pattern = r'(name:"' + re.escape(name) + r'"[^}]*?perf:)(\{[^}]*\})'
+            perf_new = re.sub(perf_pattern, lambda m: m.group(1) + perf_json, html_content)
+            if perf_new != html_content:
+                html_content = perf_new
+                updated = True
+                print(f"  ✅ {name}：績效已更新（{len(perf)} 筆）")
+            else:
+                print(f"  ⚠️  {name}：找不到 perf 欄位，略過")
     return html_content, updated
 
 
@@ -267,9 +315,11 @@ def main():
             print(f"  [{i}/{len(FUNDS)}] {fund['name']:<8}", end=" ", flush=True)
             nav, dist = fetch_fund_data(driver, fund)
             if nav and dist:
-                r = calculate(nav, dist, fund["name"])
+                perf = fetch_perf_data(driver, fund)
+                r = calculate(nav, dist, fund["name"], perf)
                 results.append(r)
-                print(f"✅ 淨值={nav:.4f}  分配={dist:.4f}  月配息 TWD {r['月配息(TWD)']:,.0f}  報酬率 {r['年化報酬率']:.2f}%")
+                perf_note = f"  績效={len(perf)}筆" if perf else "  ⚠️績效未取得"
+                print(f"✅ 淨值={nav:.4f}  分配={dist:.4f}  月配息 TWD {r['月配息(TWD)']:,.0f}  報酬率 {r['年化報酬率']:.2f}%{perf_note}")
             else:
                 print(f"❌ 無法取得資料（淨值={nav}, 分配={dist}）")
                 errors.append(fund["name"])
