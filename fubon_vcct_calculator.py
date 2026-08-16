@@ -128,8 +128,8 @@ def fetch_fund_data(driver, fund):
     return nav, dist
 
 
-PERF_LABELS = ["一週", "一個月", "本月", "本季", "三個月", "六個月", "九個月", "一年", "二年", "三年", "五年"]
 _NUM_RE = re.compile(r'^-?\d+(\.\d+)?$|^N/A$')
+_PERIOD_RE = re.compile(r'[週月季年]')
 
 
 def _fmt_pct(v):
@@ -147,9 +147,10 @@ def _fmt_pct(v):
 def fetch_perf_data(driver, fund):
     """抓取「累積報酬率」頁面（{p}03.djhtm），回傳 {期間: 數值字串} 的 dict。
     對應網址規律：wb01/wr01 淨值頁 → {p}02 淨值明細、{p}03 累積報酬率（wb/wr 皆同）。
-    頁面上的期間標題（一週/一個月…）是用 <th> 呈現、不是 <td>，所以無法直接從資料列旁邊撈到文字標籤；
-    改用欄位數量辨識：真正的績效列格式固定是「(空白) + 基金全名 + 11 個數值」共 13 欄，
-    數值依序對應 PERF_LABELS 的順序（一週～五年），這是實際觀察頁面 DOM 結構後確認的規律。"""
+    注意：境外基金（wb）通常揭露 11 個期間（一週～五年），境內基金（wr）通常只揭露 7 個
+    （一個月～五年，沒有一週/本月/本季/九個月），欄位數量不固定，因此不能寫死。
+    頁面結構是：期間標題用 <th> 呈現在某一列，緊接著下一列才是 <td> 數值（空白+基金全名+N個數值），
+    所以改成動態讀取：找到「這一列的 th 都像期間名稱」且「下一列的 td 數量對得上」的那組，直接配對。"""
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
@@ -160,14 +161,18 @@ def fetch_perf_data(driver, fund):
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.TAG_NAME, "table")))
         time.sleep(3)
         for table in driver.find_elements(By.TAG_NAME, "table"):
-            for row in table.find_elements(By.TAG_NAME, "tr"):
-                cells = [td.text.strip() for td in row.find_elements(By.TAG_NAME, "td")]
-                if len(cells) != 2 + len(PERF_LABELS) or cells[0] != "":
+            rows = table.find_elements(By.TAG_NAME, "tr")
+            for i in range(len(rows) - 1):
+                labels = [th.text.strip() for th in rows[i].find_elements(By.TAG_NAME, "th")]
+                if len(labels) < 2 or not all(_PERIOD_RE.search(lbl) for lbl in labels):
+                    continue
+                cells = [td.text.strip() for td in rows[i + 1].find_elements(By.TAG_NAME, "td")]
+                if len(cells) != len(labels) + 2 or cells[0] != "":
                     continue
                 values = cells[2:]
                 if not all(_NUM_RE.match(v) for v in values):
                     continue
-                perf = {lbl: _fmt_pct(val) for lbl, val in zip(PERF_LABELS, values)}
+                perf = {lbl: _fmt_pct(val) for lbl, val in zip(labels, values)}
                 break
             if perf:
                 break
