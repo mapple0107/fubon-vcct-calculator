@@ -129,11 +129,27 @@ def fetch_fund_data(driver, fund):
 
 
 PERF_LABELS = ["一週", "一個月", "本月", "本季", "三個月", "六個月", "九個月", "一年", "二年", "三年", "五年"]
+_NUM_RE = re.compile(r'^-?\d+(\.\d+)?$|^N/A$')
+
+
+def _fmt_pct(v):
+    """把原始數字字串轉成帶正負號、百分比符號的顯示格式（N/A 原樣保留）"""
+    if v is None or v == "" or v == "N/A":
+        return "N/A"
+    try:
+        f = float(v)
+    except ValueError:
+        return v
+    sign = "+" if f > 0 else ""
+    return f"{sign}{f:.2f}%"
 
 
 def fetch_perf_data(driver, fund):
     """抓取「累積報酬率」頁面（{p}03.djhtm），回傳 {期間: 數值字串} 的 dict。
-    對應網址規律：wb01/wr01 淨值頁 → {p}02 淨值明細、{p}03 累積報酬率（wb/wr 皆同）。"""
+    對應網址規律：wb01/wr01 淨值頁 → {p}02 淨值明細、{p}03 累積報酬率（wb/wr 皆同）。
+    頁面上的期間標題（一週/一個月…）是用 <th> 呈現、不是 <td>，所以無法直接從資料列旁邊撈到文字標籤；
+    改用欄位數量辨識：真正的績效列格式固定是「(空白) + 基金全名 + 11 個數值」共 13 欄，
+    數值依序對應 PERF_LABELS 的順序（一週～五年），這是實際觀察頁面 DOM 結構後確認的規律。"""
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
@@ -142,18 +158,17 @@ def fetch_perf_data(driver, fund):
     driver.get(f"{BASE}/w/{p}/{p}03.djhtm?a={fund['code']}&product={PRODUCT}")
     try:
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.TAG_NAME, "table")))
-        time.sleep(2.5)
+        time.sleep(3)
         for table in driver.find_elements(By.TAG_NAME, "table"):
-            rows = table.find_elements(By.TAG_NAME, "tr")
-            if len(rows) != 3:
-                continue
-            labels = [td.text.strip() for td in rows[1].find_elements(By.TAG_NAME, "td")]
-            values = [td.text.strip() for td in rows[2].find_elements(By.TAG_NAME, "td")]
-            if not labels or not any(lbl in PERF_LABELS for lbl in labels):
-                continue
-            for lbl, val in zip(labels, values):
-                if lbl in PERF_LABELS and val:
-                    perf[lbl] = val
+            for row in table.find_elements(By.TAG_NAME, "tr"):
+                cells = [td.text.strip() for td in row.find_elements(By.TAG_NAME, "td")]
+                if len(cells) != 2 + len(PERF_LABELS) or cells[0] != "":
+                    continue
+                values = cells[2:]
+                if not all(_NUM_RE.match(v) for v in values):
+                    continue
+                perf = {lbl: _fmt_pct(val) for lbl, val in zip(PERF_LABELS, values)}
+                break
             if perf:
                 break
     except Exception:
@@ -205,27 +220,34 @@ def update_html(results, html_content):
         perf = r.get("績效") or {}
 
         # 比對格式：name:"JFP11", label:"...", nav:數字, dist:數字
-        pattern     = r'(name:"' + re.escape(name) + r'"[^}]*?nav:)([\d.]+)([^}]*?dist:)([\d.]+)'
-        replacement = rf'\g<1>{nav}\g<3>{dist}'
-        new_content = re.sub(pattern, replacement, html_content)
-        if new_content != html_content:
-            html_content = new_content
-            updated = True
-            print(f"  ✅ {name}：淨值={nav}，分配={dist}")
-        else:
+        pattern = r'(name:"' + re.escape(name) + r'"[^}]*?nav:)([\d.]+)([^}]*?dist:)([\d.]+)'
+        if not re.search(pattern, html_content):
             print(f"  ⚠️  {name}：找不到對應欄位，略過")
+        else:
+            replacement = rf'\g<1>{nav}\g<3>{dist}'
+            new_content = re.sub(pattern, replacement, html_content)
+            if new_content != html_content:
+                html_content = new_content
+                updated = True
+                print(f"  ✅ {name}：淨值={nav}，分配={dist}")
+            else:
+                print(f"  ℹ️  {name}：淨值={nav}，分配={dist}（跟目前網頁上的一樣，無需變動）")
 
         # 比對格式：name:"JFP11" ... perf:{...}（可能是空物件或先前抓過的內容）
-        if perf:
+        perf_pattern = r'(name:"' + re.escape(name) + r'"[^}]*?perf:)(\{[^}]*\})'
+        if not perf:
+            print(f"  ⚠️  {name}：本次沒有抓到績效資料，略過")
+        elif not re.search(perf_pattern, html_content):
+            print(f"  ⚠️  {name}：找不到 perf 欄位，略過")
+        else:
             perf_json = json.dumps(perf, ensure_ascii=False, separators=(",", ":"))
-            perf_pattern = r'(name:"' + re.escape(name) + r'"[^}]*?perf:)(\{[^}]*\})'
             perf_new = re.sub(perf_pattern, lambda m: m.group(1) + perf_json, html_content)
             if perf_new != html_content:
                 html_content = perf_new
                 updated = True
                 print(f"  ✅ {name}：績效已更新（{len(perf)} 筆）")
             else:
-                print(f"  ⚠️  {name}：找不到 perf 欄位，略過")
+                print(f"  ℹ️  {name}：績效資料跟網頁上的一樣，無需變動")
     return html_content, updated
 
 
