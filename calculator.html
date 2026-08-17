@@ -50,6 +50,17 @@
   .metric { background: #f0f6ff; border-radius: 12px; padding: 14px 12px; }
   .metric .m-label { font-size: 12px; color: #0071e3; margin-bottom: 5px; }
   .metric .m-val { font-size: 20px; font-weight: 600; color: #0071e3; }
+  .perf-card { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid #e5e5ea; }
+  .perf-card h3 { font-size: 13px; font-weight: 600; color: #6e6e73; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px; }
+  .perf-card .perf-note { font-size: 12px; color: #aeaeb2; margin-bottom: 12px; }
+  .perf-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .perf-item { text-align: center; }
+  .perf-item .p-val { font-size: 17px; font-weight: 700; color: #1d1d1f; margin-bottom: 4px; }
+  .perf-item .p-val.pos { color: #1a8a3c; }
+  .perf-item .p-val.neg { color: #c0392b; }
+  .perf-item .p-val.na  { color: #c7c7cc; font-weight: 500; }
+  .perf-item .p-label { font-size: 11px; color: #aeaeb2; }
+  @media (max-width: 500px) { .perf-grid { grid-template-columns: repeat(3, 1fr); row-gap: 14px; } }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th { text-align: left; padding: 8px 10px; font-size: 12px; color: #6e6e73; font-weight: 500; border-bottom: 1px solid #e5e5ea; }
   td { padding: 10px; border-bottom: 1px solid #f2f2f7; }
@@ -113,6 +124,11 @@
         <tbody id="alloc-table"></tbody>
       </table>
       <div class="summary-row" id="alloc-summary"></div>
+      <div class="perf-card" id="alloc-perf" style="display:none;">
+        <h3>組合含息報酬</h3>
+        <div class="perf-note">依配置比例加權，含息計算</div>
+        <div class="perf-grid" id="alloc-perf-grid"></div>
+      </div>
     </div>
   </div>
 
@@ -139,10 +155,10 @@
 
 <script>
 const PRESET_FUNDS = [
-  { name:"JFP11", label:"JFP11｜摩根多重收益基金",  nav:75.19,  dist:0.692 },
-  { name:"ACC3",  label:"ACC3｜聯博多元資產收益組合-AI類型",          nav:9.57,   dist:0.075 },
-  { name:"FRP4",  label:"FRP4｜富蘭克林穩定月收益",        nav:10.03,   dist:0.067 },
-  { name:"DSP5",  label:"DSP5｜安聯收益成長(美元)",        nav:8.7559,   dist:0.055 },
+  { name:"JFP11", label:"JFP11｜摩根多重收益基金",  nav:75.19,  dist:0.692, perf:{} },
+  { name:"ACC3",  label:"ACC3｜聯博多元資產收益組合-AI類型",          nav:9.57,   dist:0.075, perf:{} },
+  { name:"FRP4",  label:"FRP4｜富蘭克林穩定月收益",        nav:10.03,   dist:0.067, perf:{} },
+  { name:"DSP5",  label:"DSP5｜安聯收益成長(美元)",        nav:8.7559,   dist:0.055, perf:{} },
 ];
 
 let allocSeq = 0, compareSeq = 0;
@@ -281,11 +297,54 @@ function getFundData(id) {
       name:  (document.getElementById('name-'+id)||{}).value || '基金'+id,
       nav:   parseFloat((document.getElementById('nav-'+id)||{}).value),
       dist:  parseFloat((document.getElementById('dist-'+id)||{}).value),
-      ratio
+      ratio,
+      perf: null
     };
   }
   const f = PRESET_FUNDS[parseInt(val)];
-  return { name: f.name, nav: f.nav, dist: f.dist, ratio };
+  return { name: f.name, nav: f.nav, dist: f.dist, ratio, perf: f.perf || null };
+}
+
+// 依配置比例加權組合各期間含息報酬率。
+// 只有在「所有」被選入的基金都有該期間的有效數值時才計算，
+// 缺資料（自訂基金、尚未爬到績效、N/A）的期間一律回傳 null（顯示為－）。
+function computeComboPerf(items) {
+  const totalRatio = items.reduce((s,r) => s + r.ratio, 0) || 100;
+  const periods = [];
+  items.forEach(r => {
+    if (!r.perf) return;
+    Object.keys(r.perf).forEach(k => { if (!periods.includes(k)) periods.push(k); });
+  });
+  const combo = {};
+  periods.forEach(period => {
+    let sum = 0, ok = true;
+    items.forEach(r => {
+      const raw = r.perf ? r.perf[period] : undefined;
+      const v = raw==null ? NaN : parseFloat(String(raw).replace('%',''));
+      if (raw === undefined || raw === 'N/A' || isNaN(v)) { ok = false; return; }
+      sum += v * (r.ratio / totalRatio);
+    });
+    combo[period] = ok ? sum : null;
+  });
+  return combo;
+}
+
+function renderComboPerf(elId, gridId, items) {
+  const combo = computeComboPerf(items);
+  const periods = Object.keys(combo);
+  const card = document.getElementById(elId);
+  if (!periods.length) { card.style.display = 'none'; return; }
+  const grid = document.getElementById(gridId);
+  grid.innerHTML = periods.map(p => {
+    const v = combo[p];
+    let cls = 'na', text = '－';
+    if (v !== null) {
+      cls = v > 0 ? 'pos' : (v < 0 ? 'neg' : '');
+      text = (v > 0 ? '+' : '') + v.toFixed(2) + '%';
+    }
+    return `<div class="perf-item"><div class="p-val ${cls}">${text}</div><div class="p-label">${p}</div></div>`;
+  }).join('');
+  card.style.display = 'block';
 }
 
 function showWarn(el, msg) { el.style.display='block'; el.textContent=msg; }
@@ -303,18 +362,20 @@ function calcAlloc() {
   allocOrder.forEach(id => { totalRatio += parseFloat((document.getElementById('ratio-'+id)||{}).value)||0; });
   if (Math.abs(totalRatio-100)>0.01) { showWarn(warn,`配置比例總和 ${totalRatio}%，需等於 100%。`); return; }
   warn.style.display='none';
+  document.getElementById('alloc-perf').style.display='none';
 
   const eff = prem*(1-rate);
   const results = [];
   for (const id of allocOrder) {
-    const {name,nav,dist,ratio} = getFundData(id);
+    const {name,nav,dist,ratio,perf} = getFundData(id);
     if (!nav||!dist) { showWarn(warn,`「${name}」淨值或分配金額未填寫。`); return; }
     if (!ratio)      { showWarn(warn,`「${name}」配置比例為 0。`); return; }
     const alloc = eff*(ratio/100);
     const mTwd  = (alloc/usdR/nav)*dist*usdR;
     const yTwd  = mTwd*12;
-    results.push({name,nav,dist,ratio,mTwd,yTwd,yieldR:(yTwd/alloc)*100});
+    results.push({name,nav,dist,ratio,mTwd,yTwd,yieldR:(yTwd/alloc)*100,perf});
   }
+  renderComboPerf('alloc-perf', 'alloc-perf-grid', results);
 
   results.sort((a,b)=>b.yieldR-a.yieldR);
   const medals=['🥇','🥈','🥉'];
