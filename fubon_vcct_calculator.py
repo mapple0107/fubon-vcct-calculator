@@ -57,6 +57,30 @@ def make_driver():
     return webdriver.Chrome(service=svc, options=opts)
 
 
+def _dismiss_alert(driver):
+    """關掉還留在頁面上的 JS alert（例如某些基金頁面 DataTables 欄位數對不上時
+    跳出的「Incorrect column count」警告）。不主動處理的話，這個 alert 會卡住
+    瀏覽器，導致下一次 driver.get() 直接丟 UnexpectedAlertPresentException，
+    害後面所有基金都跟著抓取失敗。"""
+    try:
+        driver.switch_to.alert.dismiss()
+    except Exception:
+        pass
+
+
+def _safe_get(driver, url):
+    """導覽到指定網址；如果上一頁還留著沒關掉的 alert，先關掉再重試一次，
+    避免單一基金的頁面問題拖垮後面所有基金的抓取。"""
+    from selenium.common.exceptions import UnexpectedAlertPresentException
+    for attempt in range(2):
+        try:
+            driver.get(url)
+            return True
+        except UnexpectedAlertPresentException:
+            _dismiss_alert(driver)
+    return False
+
+
 def _parse_date_key(date_str):
     """把 MM/DD 或 YYYY/MM/DD 轉成可比較的日期物件，抓不到年份時用今年，
     若因跨年造成日期看起來在未來，往前推一年。"""
@@ -82,7 +106,7 @@ def fetch_fund_data(driver, fund):
 
     # 抓淨值：收集頁面上所有「日期＋淨值」配對，取日期最新的那一筆
     # （避免頁面上有多個表格/區塊時，誤抓到非最新一列的舊資料）
-    driver.get(f"{BASE}/w/{p}/{p}02.djhtm?a={fund['code']}&product={PRODUCT}")
+    _safe_get(driver, f"{BASE}/w/{p}/{p}02.djhtm?a={fund['code']}&product={PRODUCT}")
     try:
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.TAG_NAME, "table")))
         candidates = []
@@ -104,11 +128,11 @@ def fetch_fund_data(driver, fund):
             candidates.sort(key=lambda item: _parse_date_key(item[0]), reverse=True)
             nav = candidates[0][1]
     except Exception:
-        pass
+        _dismiss_alert(driver)
 
     # 抓配息
     page = "wr10" if p == "wr" else "wb05"
-    driver.get(f"{BASE}/w/{p}/{page}.djhtm?a={fund['code']}&product={PRODUCT}")
+    _safe_get(driver, f"{BASE}/w/{p}/{page}.djhtm?a={fund['code']}&product={PRODUCT}")
     try:
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.TAG_NAME, "table")))
         time.sleep(2)
@@ -123,7 +147,7 @@ def fetch_fund_data(driver, fund):
             if dist:
                 break
     except Exception:
-        pass
+        _dismiss_alert(driver)
 
     return nav, dist
 
@@ -156,7 +180,7 @@ def fetch_perf_data(driver, fund):
     from selenium.webdriver.support import expected_conditions as EC
     p = fund["prefix"]
     perf = {}
-    driver.get(f"{BASE}/w/{p}/{p}03.djhtm?a={fund['code']}&product={PRODUCT}")
+    _safe_get(driver, f"{BASE}/w/{p}/{p}03.djhtm?a={fund['code']}&product={PRODUCT}")
     try:
         WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.TAG_NAME, "table")))
         time.sleep(3)
@@ -177,7 +201,7 @@ def fetch_perf_data(driver, fund):
             if perf:
                 break
     except Exception:
-        pass
+        _dismiss_alert(driver)
     return perf
 
 
@@ -268,32 +292,54 @@ def _run_git(args, cwd):
 
 
 def auto_update_web(results):
-    """直接在本機 git 資料夾修改 calculator.html，git pull/commit/push 到 GitHub
-    （改用本機 git 而不是 GitHub API，因為 API 版本一直沒有真的成功寫入，難以除錯）"""
+    """修改 calculator.html，commit/push 到 GitHub。
+    本機執行時：直接在 REPO_PATHS 指到的本機 git 資料夾操作（沿用你手動改過、還沒 commit 的內容）。
+    在 Railway 這種雲端容器裡執行時：REPO_PATHS 那些路徑不存在（那是你電腦上的路徑，容器裡看不到），
+    所以改成用 GITHUB_TOKEN 直接把兩個倉庫 clone 到一個暫存資料夾，改完再 push 回去，
+    這樣排程才會真的更新到網頁，而不是每次都印「找不到本機資料夾，略過」卻什麼都沒發生。"""
     if not GITHUB_TOKEN:
         print("❌ 請設定環境變數 GITHUB_TOKEN")
         return
 
+    import shutil
+    import tempfile
     from datetime import datetime
     date_str = datetime.now().strftime("%Y-%m-%d")
     print("\n🌐 開始更新網頁...")
 
     for repo in REPOS:
-        path = REPO_PATHS.get(repo)
-        print(f"\n  📄 {repo} ({path})")
-        if not path or not os.path.isdir(path):
-            print(f"  ❌ 找不到本機資料夾，略過")
-            continue
+        print(f"\n  📄 {repo}")
+        local_path = REPO_PATHS.get(repo)
+        use_local = bool(local_path and os.path.isdir(local_path))
+        tmpdir = None
+
+        if use_local:
+            path = local_path
+            print(f"  ℹ️  使用本機資料夾：{path}")
+            # 先 pull，確保基於最新版本修改（避免蓋掉手動改過的內容）
+            pull = _run_git(["pull", "--no-edit"], cwd=path)
+            if pull.returncode != 0:
+                print(f"  ⚠️  git pull 失敗：{pull.stderr.strip()[:200]}（仍嘗試繼續）")
+        else:
+            tmpdir = tempfile.mkdtemp(prefix=f"{repo}-")
+            clone_url = f"https://mapple0107:{GITHUB_TOKEN}@github.com/{USERNAME}/{repo}.git"
+            clone = _run_git(["clone", "--depth", "1", clone_url, tmpdir], cwd=tempfile.gettempdir())
+            if clone.returncode != 0:
+                print(f"  ❌ 本機找不到資料夾，clone 也失敗，略過：{clone.stderr.strip()[:200]}")
+                shutil.rmtree(tmpdir, ignore_errors=True)
+                continue
+            path = tmpdir
+            print(f"  ℹ️  本機找不到資料夾，改用暫存 clone：{path}")
+
+        # 每次都明確設定 commit 身分，避免容器裡沒有全域 git 設定導致 commit 失敗
+        _run_git(["config", "user.email", "bot@fubon-calculator.local"], cwd=path)
+        _run_git(["config", "user.name", "Fubon Calculator Bot"], cwd=path)
 
         html_path = os.path.join(path, "calculator.html")
-
-        # 先 pull，確保基於最新版本修改（避免蓋掉手動改過的內容）
-        pull = _run_git(["pull", "--no-edit"], cwd=path)
-        if pull.returncode != 0:
-            print(f"  ⚠️  git pull 失敗：{pull.stderr.strip()[:200]}（仍嘗試繼續）")
-
         if not os.path.isfile(html_path):
             print(f"  ❌ 找不到 calculator.html，略過")
+            if tmpdir:
+                shutil.rmtree(tmpdir, ignore_errors=True)
             continue
 
         with open(html_path, encoding="utf-8") as f:
@@ -303,6 +349,8 @@ def auto_update_web(results):
 
         if not updated:
             print(f"  ℹ️  無變動，略過")
+            if tmpdir:
+                shutil.rmtree(tmpdir, ignore_errors=True)
             continue
 
         with open(html_path, "w", encoding="utf-8") as f:
@@ -312,6 +360,8 @@ def auto_update_web(results):
         commit = _run_git(["commit", "-m", f"自動更新基金淨值 {date_str}"], cwd=path)
         if commit.returncode != 0 and "nothing to commit" in (commit.stdout + commit.stderr):
             print(f"  ℹ️  git 無變動可提交，略過")
+            if tmpdir:
+                shutil.rmtree(tmpdir, ignore_errors=True)
             continue
 
         remote_url = f"https://mapple0107:{GITHUB_TOKEN}@github.com/{USERNAME}/{repo}.git"
@@ -321,6 +371,9 @@ def auto_update_web(results):
         else:
             err = (push.stderr or push.stdout).strip()
             print(f"  ❌ {repo} 推送失敗：{err[:300]}")
+
+        if tmpdir:
+            shutil.rmtree(tmpdir, ignore_errors=True)
 
     print("\n✅ 網頁更新完成！")
 
