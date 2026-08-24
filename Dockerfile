@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-RUN apt-get update && apt-get install -y wget gnupg curl unzip ca-certificates \
+RUN apt-get update && apt-get install -y wget gnupg curl unzip ca-certificates git \
     && wget -q -O /usr/share/keyrings/google-chrome-key.pub https://dl-ssl.google.com/linux/linux_signing_key.pub \
     && gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg /usr/share/keyrings/google-chrome-key.pub \
     && echo "deb [signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
