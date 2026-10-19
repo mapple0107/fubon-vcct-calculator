@@ -12,15 +12,19 @@ FEE_RATE = 0.05
 USD_RATE = 31.4
 PRODUCT  = "VCCT"
 FUNDS = [
-    {"name": "JFP11", "code": "JFZN3-JFP11",  "prefix": "wb"},
-    {"name": "ACC3",  "code": "ACTI71-ACC3",   "prefix": "wr"},
-    {"name": "IGB5",  "code": "CTZP0-IGB5",    "prefix": "wb"},
-    {"name": "FRP4",  "code": "FLZ92-FRP4",    "prefix": "wb"},
-    {"name": "DSP5",  "code": "TLZ64-DSP5",    "prefix": "wb"},
-    {"name": "SCP6",  "code": "PYZW3-SCP6",    "prefix": "wb"},
-    {"name": "ESC1",  "code": "ACCP138-ESC1",  "prefix": "wr"},
-    {"name": "MLE24", "code": "SHZV9-MLE24",   "prefix": "wb"},
+    {"name": "JFP11"},
+    {"name": "ACC3"},
+    {"name": "IGB5"},
+    {"name": "FRP4"},
+    {"name": "DSP5"},
+    {"name": "SCP6"},
+    {"name": "ESC1"},
+    {"name": "MLE24"},
 ]
+# 2026/10 富邦人壽投資型保險網站改版，舊的 /w/wb/wb02.djhtm 等路徑已下架（只會回傳
+# 「服務未能正常連線」提示頁）。新站改用 /funds/overview（最新淨值／績效與風險兩個頁籤）
+# 與 /funds/dividend（每單位分配金額），且都可以直接用基金代碼（如 JFP11）搜尋，
+# 不再需要舊版的 wb/wr 前綴與完整代碼組合。
 BASE = "https://invest.fubonlife.com.tw"
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 USERNAME = "mapple0107"
@@ -81,128 +85,130 @@ def _safe_get(driver, url):
     return False
 
 
-def _parse_date_key(date_str):
-    """把 MM/DD 或 YYYY/MM/DD 轉成可比較的日期物件，抓不到年份時用今年，
-    若因跨年造成日期看起來在未來，往前推一年。"""
-    from datetime import datetime, timedelta
-    now = datetime.now()
-    try:
-        if len(date_str) == 5:  # MM/DD
-            d = datetime.strptime(f"{now.year}/{date_str}", "%Y/%m/%d")
-            if d > now + timedelta(days=2):
-                d = d.replace(year=now.year - 1)
-            return d
-        return datetime.strptime(date_str, "%Y/%m/%d")
-    except Exception:
-        return datetime.min
-
-
-def fetch_fund_data(driver, fund):
+def _wait_table(driver, timeout=15):
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
-    p = fund["prefix"]
-    nav, dist = None, None
-
-    # 抓淨值：收集頁面上所有「日期＋淨值」配對，取日期最新的那一筆
-    # （避免頁面上有多個表格/區塊時，誤抓到非最新一列的舊資料）
-    _safe_get(driver, f"{BASE}/w/{p}/{p}02.djhtm?a={fund['code']}&product={PRODUCT}")
-    try:
-        WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.TAG_NAME, "table")))
-        candidates = []
-        for attempt in range(3):
-            time.sleep(2.5 if attempt == 0 else 2)
-            candidates = []
-            for row in driver.find_elements(By.CSS_SELECTOR, "table tr"):
-                cells = [td.text.strip() for td in row.find_elements(By.TAG_NAME, "td")]
-                for idx, cell in enumerate(cells):
-                    if re.match(r"^\d{2}/\d{2}$|^\d{4}/\d{2}/\d{2}$", cell) and idx + 1 < len(cells):
-                        try:
-                            val = float(cells[idx + 1])
-                            candidates.append((cell, val))
-                        except ValueError:
-                            continue
-            if candidates:
-                break
-        if candidates:
-            candidates.sort(key=lambda item: _parse_date_key(item[0]), reverse=True)
-            nav = candidates[0][1]
-    except Exception:
-        _dismiss_alert(driver)
-
-    # 抓配息
-    page = "wr10" if p == "wr" else "wb05"
-    _safe_get(driver, f"{BASE}/w/{p}/{page}.djhtm?a={fund['code']}&product={PRODUCT}")
-    try:
-        WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.TAG_NAME, "table")))
-        time.sleep(2)
-        for row in driver.find_elements(By.CSS_SELECTOR, "table tr"):
-            cells = [td.text.strip() for td in row.find_elements(By.TAG_NAME, "td")]
-            for cell in cells:
-                if re.match(r"^\d+\.\d{3,6}$", cell):
-                    val = float(cell)
-                    if 0.001 < val < 100:
-                        dist = val
-                        break
-            if dist:
-                break
-    except Exception:
-        _dismiss_alert(driver)
-
-    return nav, dist
+    WebDriverWait(driver, timeout).until(EC.presence_of_element_located((By.TAG_NAME, "table")))
 
 
-_NUM_RE = re.compile(r'^-?\d+(\.\d+)?$|^N/A$')
-_PERIOD_RE = re.compile(r'[週月季年]')
-
-
-def _fmt_pct(v):
-    """把原始數字字串轉成帶正負號、百分比符號的顯示格式（N/A 原樣保留）"""
-    if v is None or v == "" or v == "N/A":
-        return "N/A"
-    try:
-        f = float(v)
-    except ValueError:
-        return v
-    sign = "+" if f > 0 else ""
-    return f"{sign}{f:.2f}%"
-
-
-def fetch_perf_data(driver, fund):
-    """抓取「累積報酬率」頁面（{p}03.djhtm），回傳 {期間: 數值字串} 的 dict。
-    對應網址規律：wb01/wr01 淨值頁 → {p}02 淨值明細、{p}03 累積報酬率（wb/wr 皆同）。
-    注意：境外基金（wb）通常揭露 11 個期間（一週～五年），境內基金（wr）通常只揭露 7 個
-    （一個月～五年，沒有一週/本月/本季/九個月），欄位數量不固定，因此不能寫死。
-    頁面結構是：期間標題用 <th> 呈現在某一列，緊接著下一列才是 <td> 數值（空白+基金全名+N個數值），
-    所以改成動態讀取：找到「這一列的 th 都像期間名稱」且「下一列的 td 數量對得上」的那組，直接配對。"""
+def _visible_search_box(driver):
+    """新版網站同一頁面上有好幾個 input[type=search]（頁首的、下拉選單篩選用的），
+    真正控制表格篩選的那個是畫面上看得到的最後一個，用 is_displayed() 排除藏起來的。"""
     from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
-    from selenium.webdriver.support import expected_conditions as EC
-    p = fund["prefix"]
+    boxes = [b for b in driver.find_elements(By.CSS_SELECTOR, 'input[type="search"]') if b.is_displayed()]
+    return boxes[-1] if boxes else None
+
+
+def _set_search(driver, box, code, wait=1.5):
+    """新版網站的表格資料在頁面載入時就已經整批帶回來（Nuxt 的 __NUXT_DATA__），
+    搜尋框只是純前端用 debounce 篩選，不會另外打 API，所以用原生 setter 寫入搜尋框
+    的值、觸發 input 事件，等 debounce 篩選跑完（約 1~1.5 秒）即可，不需要按 Enter。"""
+    driver.execute_script(
+        """
+        const el = arguments[0], value = arguments[1];
+        const proto = Object.getPrototypeOf(el);
+        const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+        desc.set.call(el, value);
+        el.dispatchEvent(new Event('input', {bubbles: true}));
+        """,
+        box, code,
+    )
+    time.sleep(wait)
+
+
+def _row_cells_for(driver, code):
+    """找出代碼欄位包含 code 的那一列，回傳所有 td 文字；查無資料（「查無資料」）回傳 None。"""
+    from selenium.webdriver.common.by import By
+    for row in driver.find_elements(By.CSS_SELECTOR, "table tbody tr"):
+        tds = row.find_elements(By.TAG_NAME, "td")
+        if tds and code in tds[0].text:
+            return [td.text.strip() for td in tds]
+    return None
+
+
+def fetch_nav_batch(driver, funds):
+    """投資標的總覽／最新淨值頁籤：一次載入頁面，逐檔搜尋取得淨值。
+    欄位順序：代碼, 標的名稱, 標的類型, 日期, 淨值, 幣別, 漲跌, 漲跌幅"""
+    nav = {}
+    if not _safe_get(driver, f"{BASE}/funds/overview"):
+        return nav
+    try:
+        _wait_table(driver)
+    except Exception:
+        print("  ❌ 投資標的總覽頁面載入逾時")
+        return nav
+    box = _visible_search_box(driver)
+    if box is None:
+        print("  ❌ 找不到搜尋框，網站版面可能又變了")
+        return nav
+    for fund in funds:
+        code = fund["name"]
+        _set_search(driver, box, code)
+        cells = _row_cells_for(driver, code)
+        if cells and len(cells) >= 5:
+            try:
+                nav[code] = float(cells[4])
+            except ValueError:
+                pass
+    return nav
+
+
+def fetch_perf_batch(driver, funds):
+    """投資標的總覽／績效與風險頁籤：切換頁籤後逐檔搜尋取得報酬率。
+    欄位順序：代碼, 標的名稱, 今年以來, 一個月, 三個月, 六個月, 一年, 二年, 三年, 五年,
+             成立以來, 風險報酬等級, 年化標準差, 夏普值, Beta係數"""
+    from selenium.webdriver.common.by import By
     perf = {}
-    _safe_get(driver, f"{BASE}/w/{p}/{p}03.djhtm?a={fund['code']}&product={PRODUCT}")
     try:
-        WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.TAG_NAME, "table")))
-        time.sleep(3)
-        for table in driver.find_elements(By.TAG_NAME, "table"):
-            rows = table.find_elements(By.TAG_NAME, "tr")
-            for i in range(len(rows) - 1):
-                labels = [th.text.strip() for th in rows[i].find_elements(By.TAG_NAME, "th")]
-                if len(labels) < 2 or not all(_PERIOD_RE.search(lbl) for lbl in labels):
-                    continue
-                cells = [td.text.strip() for td in rows[i + 1].find_elements(By.TAG_NAME, "td")]
-                if len(cells) != len(labels) + 2 or cells[0] != "":
-                    continue
-                values = cells[2:]
-                if not all(_NUM_RE.match(v) for v in values):
-                    continue
-                perf = {lbl: _fmt_pct(val) for lbl, val in zip(labels, values)}
-                break
-            if perf:
-                break
+        tab_btn = next(
+            b for b in driver.find_elements(By.TAG_NAME, "button")
+            if b.text.strip() == "績效與風險"
+        )
+        tab_btn.click()
+        time.sleep(0.8)
+        _wait_table(driver)
     except Exception:
-        _dismiss_alert(driver)
+        print("  ❌ 切換到績效與風險頁籤失敗")
+        return perf
+    box = _visible_search_box(driver)
+    if box is None:
+        return perf
+    labels = ["今年以來", "一個月", "三個月", "六個月", "一年", "二年", "三年", "五年", "成立以來"]
+    for fund in funds:
+        code = fund["name"]
+        _set_search(driver, box, code)
+        cells = _row_cells_for(driver, code)
+        if cells and len(cells) >= 2 + len(labels):
+            values = cells[2:2 + len(labels)]
+            perf[code] = {lbl: _fmt_pct(val) for lbl, val in zip(labels, values)}
     return perf
+
+
+def fetch_dividend_batch(driver, funds):
+    """配息/提解資訊頁面：一次載入頁面，逐檔搜尋取得每單位分配金額。
+    欄位順序：代碼, 標的名稱, 日期, 淨值, 幣別, 每單位分配金額, 基準日, 除息日"""
+    dist = {}
+    if not _safe_get(driver, f"{BASE}/funds/dividend"):
+        return dist
+    try:
+        _wait_table(driver)
+    except Exception:
+        print("  ❌ 配息/提解資訊頁面載入逾時")
+        return dist
+    box = _visible_search_box(driver)
+    if box is None:
+        return dist
+    for fund in funds:
+        code = fund["name"]
+        _set_search(driver, box, code)
+        cells = _row_cells_for(driver, code)
+        if cells and len(cells) >= 6:
+            try:
+                dist[code] = float(cells[5])
+            except ValueError:
+                pass
+    return dist
 
 
 def calculate(nav, dist, name, perf=None):
@@ -391,18 +397,29 @@ def main():
     results, errors = [], []
 
     try:
+        # 新站把資料整批帶回頁面、搜尋框是純前端篩選，所以每個頁面只需要載入一次，
+        # 逐檔搜尋就好，不用像舊版那樣每檔基金各自打開好幾個頁面。
+        print("\n📈 查詢最新淨值（投資標的總覽）...")
+        nav_map = fetch_nav_batch(driver, FUNDS)
+        print("📊 查詢績效與風險...")
+        perf_map = fetch_perf_batch(driver, FUNDS)
+        print("💰 查詢配息資訊（配息/提解資訊）...")
+        dist_map = fetch_dividend_batch(driver, FUNDS)
+
         for i, fund in enumerate(FUNDS, 1):
-            print(f"  [{i}/{len(FUNDS)}] {fund['name']:<8}", end=" ", flush=True)
-            nav, dist = fetch_fund_data(driver, fund)
+            name = fund["name"]
+            nav = nav_map.get(name)
+            dist = dist_map.get(name)
+            perf = perf_map.get(name, {})
+            print(f"  [{i}/{len(FUNDS)}] {name:<8}", end=" ", flush=True)
             if nav and dist:
-                perf = fetch_perf_data(driver, fund)
-                r = calculate(nav, dist, fund["name"], perf)
+                r = calculate(nav, dist, name, perf)
                 results.append(r)
                 perf_note = f"  績效={len(perf)}筆" if perf else "  ⚠️績效未取得"
                 print(f"✅ 淨值={nav:.4f}  分配={dist:.4f}  月配息 TWD {r['月配息(TWD)']:,.0f}  報酬率 {r['年化報酬率']:.2f}%{perf_note}")
             else:
-                print(f"❌ 無法取得資料（淨值={nav}, 分配={dist}）")
-                errors.append(fund["name"])
+                print(f"❌ 無法取得資料（淨值={nav}, 分配={dist}），請確認代碼 {name} 在新版網站上是否仍叫這個名字")
+                errors.append(name)
     finally:
         driver.quit()
         print("🔒 瀏覽器已關閉")
