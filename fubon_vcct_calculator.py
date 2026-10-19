@@ -127,6 +127,18 @@ def _row_cells_for(driver, code):
     return None
 
 
+def _fmt_pct(v):
+    """把原始數字字串轉成帶正負號、百分比符號的顯示格式（N/A 原樣保留）"""
+    if v is None or v == "" or v == "N/A":
+        return "N/A"
+    try:
+        f = float(v)
+    except ValueError:
+        return v
+    sign = "+" if f > 0 else ""
+    return f"{sign}{f:.2f}%"
+
+
 def fetch_nav_batch(driver, funds):
     """投資標的總覽／最新淨值頁籤：一次載入頁面，逐檔搜尋取得淨值。
     欄位順序：代碼, 標的名稱, 標的類型, 日期, 淨值, 幣別, 漲跌, 漲跌幅"""
