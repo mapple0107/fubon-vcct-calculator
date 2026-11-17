@@ -353,28 +353,39 @@ def auto_update_web(results):
         _run_git(["config", "user.email", "bot@fubon-calculator.local"], cwd=path)
         _run_git(["config", "user.name", "Fubon Calculator Bot"], cwd=path)
 
-        html_path = os.path.join(path, "calculator.html")
-        if not os.path.isfile(html_path):
-            print(f"  ❌ 找不到 calculator.html，略過")
-            if tmpdir:
-                shutil.rmtree(tmpdir, ignore_errors=True)
-            continue
+        # fubon-calculator 這個 repo 裡，calculator.html 跟 leverage.html（房產活化的配息基金
+        # 下拉選單 FUND_OPTIONS）都內嵌了同一組基金 name/nav/dist 資料，所以兩個檔案都要同步更新，
+        # 避免 leverage.html 的下拉選單淨值/配息跟配息計算機頁面對不起來。
+        target_files = ["calculator.html", "leverage.html"] if repo == "fubon-calculator" else ["calculator.html"]
 
-        with open(html_path, encoding="utf-8") as f:
-            html_content = f.read()
+        changed_files = []
+        for fname in target_files:
+            html_path = os.path.join(path, fname)
+            if not os.path.isfile(html_path):
+                print(f"  ❌ 找不到 {fname}，略過")
+                continue
 
-        new_html, updated = update_html(results, html_content)
+            with open(html_path, encoding="utf-8") as f:
+                html_content = f.read()
 
-        if not updated:
+            print(f"    - {fname}")
+            new_html, updated = update_html(results, html_content)
+
+            if not updated:
+                print(f"  ℹ️  {fname} 無變動，略過")
+                continue
+
+            with open(html_path, "w", encoding="utf-8") as f:
+                f.write(new_html)
+            changed_files.append(fname)
+
+        if not changed_files:
             print(f"  ℹ️  無變動，略過")
             if tmpdir:
                 shutil.rmtree(tmpdir, ignore_errors=True)
             continue
 
-        with open(html_path, "w", encoding="utf-8") as f:
-            f.write(new_html)
-
-        _run_git(["add", "calculator.html"], cwd=path)
+        _run_git(["add"] + changed_files, cwd=path)
         commit = _run_git(["commit", "-m", f"自動更新基金淨值 {date_str}"], cwd=path)
         if commit.returncode != 0 and "nothing to commit" in (commit.stdout + commit.stderr):
             print(f"  ℹ️  git 無變動可提交，略過")
